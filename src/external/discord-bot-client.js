@@ -2,7 +2,7 @@
 // generic discord bot template
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
-const { storeMessage, isAuthenticated, sendMessage, getMessages } = require('./redis-chat-server'); 
+const { storeMessage, isAuthenticated, sendMessage, getMessages } = require('../redis-chat-server'); 
 
 
 // Add a way for the bot to send messages via webhooks,
@@ -24,3 +24,4 @@ client.on('messageCreate', async (message) => {
         content: message.content,
         timestamp: Date.now()
     });
+});

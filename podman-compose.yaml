@@ -1,0 +1,25 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: redis_server
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  chat-server:
+    image: node:20
+    container_name: chat_server
+    working_dir: /app
+    command: node src/chat-server/server.js
+    depends_on:
+      - redis
+    env_file:
+      - .env   # <--- load the secrets from .env
+    environment:
+      REDIS_HOST: redis   # use the service name, not localhost
+      REDIS_PORT: 6379
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    restart: unless-stopped
