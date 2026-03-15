@@ -1,7 +1,7 @@
 // auth.js
 const crypto = require("crypto");
 const datastore = require("./datastore");
-
+const Roles = require("./users").Roles;
 
 /**
  * Seassion time to live (TTL) in milliseconds. After this time, the session will expire and require re-authentication.
@@ -10,10 +10,22 @@ const datastore = require("./datastore");
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const AuthService = {
-  async authenticate({ userId, token }) {
+  async authenticate({ userId, hashedPass }) {
+
+    // hash the password for comparison
+    // const hashedPass = crypto.createHash("sha256").update(password).digest("hex");
+
+    console.log("Authenticating user:", { userId });
     const user = await datastore.get(`user:${userId}`);
-    if (!user || user.role === Roles.Blocked) return null; // BLOCKED
-    if (user.token !== token) return null;
+    console.log("User data retrieved for authentication:", user);
+
+    if (!user || user.role === Roles.BLOCKED) return null; // BLOCKED
+    if (user.hashedPass !== hashedPass) {
+      console.log("Authentication failed for user:", { userId });
+      console.log("hashedPass provided:", hashedPass);
+      console.log("hashedPass expected:", user.hashedPass);
+      return null;
+    }
 
     const sessionToken = crypto.randomBytes(32).toString("hex");
     const session = { userId, created: Date.now(), expires: Date.now() + SESSION_TTL_MS };

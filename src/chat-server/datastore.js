@@ -59,19 +59,23 @@ async function del(key) {
 // Persistence (save/load full state)
 // ========================
 async function saveState() {
+  console.log("Saving state...");
   const keys = await client.keys("*");
   const state = {};
   for (const key of keys) {
     const data = await get(key);
     if (data) state[key] = data;
   }
+  console.log("Finished saving state.");
   return state;
 }
 
 async function loadState(state) {
+  console.log("Loading previously saved state...");
   for (const [key, value] of Object.entries(state)) {
     await set(key, value);
   }
+  console.log("Finished loading previously saved state.");
 }
 
 module.exports = {

@@ -10,6 +10,7 @@ const Roles = Object.freeze({
   MODERATOR: 3,
   ADMIN: 4,
   OWNER: 5,
+  ROOT: 6
 });
 
 function hashToken(token) {
@@ -17,12 +18,21 @@ function hashToken(token) {
 }
 
 // Internal
-async function createUserInternal({ osrs_name, disc_name, forum_name, role = Roles.USER, token }) {
-  const id = crypto.randomUUID();
-  const rawToken = token || crypto.randomBytes(16).toString("hex");
-  const hashedToken = hashToken(rawToken);
+async function createUserInternal({ osrs_name, disc_name, forum_name, role = Roles.USER, hashedPass: password }) {
+  console.log("Creating user with data:", { osrs_name, disc_name, forum_name, role });
 
-  const user = { id, osrs_name, disc_name, forum_name, role, token: hashedToken, created_at: Date.now() };
+  // if role is ROOT, check if another root user exists first and don't create a new one.
+  if (role === Roles.ROOT) {
+    const existingRootId = await datastore.get("user:role:ROOT");
+    if (existingRootId) throw new Error("ROOT user already exists!", { existingRootId });
+  }
+
+  const id = crypto.randomUUID();
+
+  
+  const hashedPass = hashToken(password);
+
+  const user = { id, osrs_name, disc_name, forum_name, role, hashedPass: hashedPass, created_at: Date.now() };
   const result = await datastore.set(`user:${id}`, user, { NX: true });
   if (!result) throw new Error("User already exists");
 
@@ -32,7 +42,9 @@ async function createUserInternal({ osrs_name, disc_name, forum_name, role = Rol
   if (disc_name) await datastore.set(`user:discord:${disc_name}`, id);
   if (forum_name) await datastore.set(`user:forum:${forum_name}`, id);
 
-  return { id, osrs_name, disc_name, forum_name, role, created_at: user.created_at, token: rawToken };
+  console.log("User created: ", { id, osrs_name, disc_name, forum_name, role });
+
+  return { id, osrs_name, disc_name, forum_name, role, created_at: user.created_at, hashedPass: hashedPass };
 }
 
 // Public API
@@ -112,5 +124,7 @@ module.exports = {
     getUser, 
     updateUser, 
     listUsers, 
-    setRole 
+    setRole,
+    createUserInternal,
+    hashToken
 };
