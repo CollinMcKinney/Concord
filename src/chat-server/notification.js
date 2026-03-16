@@ -11,6 +11,26 @@ const NotificationType = Object.freeze({
   SYSTEM: "system",
 });
 
+/**
+ * Parse a notification type input (string or number) to the corresponding enum value.
+ * Returns the numeric enum value, or null if invalid.
+ */
+function parseNotificationType(type) {
+  if (typeof type === "number") {
+    // Already a valid numeric enum? Check if it exists
+    if (Object.values(NotificationType).includes(type)) return type;
+    return null;
+  }
+
+  if (typeof type === "string") {
+    const upper = type.toUpperCase();
+    if (NotificationType[upper] !== undefined) return NotificationType[upper];
+  }
+
+  return null; // invalid type
+}
+
+
 // ---------------- Add Notification ----------------
 // Only Moderator+ can add
 async function addNotification(actorId, actorSessionToken, type, content) {
@@ -24,7 +44,7 @@ async function addNotification(actorId, actorSessionToken, type, content) {
   const stored = {
     id,
     actorId,
-    type,
+    type: parseNotificationType(type),
     content,
     timestamp: Date.now()
   };

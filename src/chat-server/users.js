@@ -77,8 +77,16 @@ async function getUser(actorId, actorSessionToken, targetId) {
   return datastore.get(`user:${targetId}`);
 }
 
+/**
+ * Parse a role input (string or number) to the corresponding enum value.
+ * Returns the numeric enum value, or null if invalid.
+ */
 function parseRole(role) {
-  if (typeof role === "number") return role;
+  if (typeof role === "number") {
+    // Already a valid numeric enum? Check if it exists
+    if (Object.values(Roles).includes(role)) return role;
+    return null;
+  }
 
   if (typeof role === "string") {
     const upper = role.toUpperCase();
