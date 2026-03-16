@@ -1,7 +1,7 @@
 // server.js
 const express = require("express");
 const bodyParser = require("body-parser");
-const { initStorage, saveState, loadState, client } = require("./datastore");
+const { initStorage, saveState, loadState, startAutoSaveDynamic } = require("./datastore");
 const auth = require("./auth");
 const users = require("./users");
 const { Roles } = require("./roles");
@@ -20,6 +20,11 @@ app.use("/admin", adminRouter);
 
 async function start() {
   await initStorage();
+  await loadState();
+
+  startAutoSaveDynamic();
+  await saveState();
+
   console.log("Server ready!");
 
   // Create ROOT user if needed

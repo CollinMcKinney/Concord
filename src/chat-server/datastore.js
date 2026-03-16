@@ -9,6 +9,11 @@ const redisPort = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 63
 const BACKUP_DIR = path.join(__dirname, "backups");
 const BACKUP_FILE = path.join(BACKUP_DIR, "redis.json");
 
+// Auto-save config
+const MIN_INTERVAL_MS = 5000;   // 5 seconds minimum for tiny DBs
+const MAX_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes maximum for large DBs
+const SIZE_THRESHOLD_MB = 50;   // Target size to scale interval
+
 // Ensure backup directory exists
 if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
@@ -61,7 +66,6 @@ async function del(key) {
 }
 
 // ======== Persistence (JSON backup) ========
-
 async function saveState() {
   try {
     const keys = await client.keys("*");
@@ -69,7 +73,6 @@ async function saveState() {
 
     for (const key of keys) {
       const type = await client.type(key);
-
       switch (type) {
         case "string":
           backupData[key] = { type, value: JSON.parse(await client.get(key)) };
@@ -81,7 +84,8 @@ async function saveState() {
           backupData[key] = { type, value: await client.sMembers(key) };
           break;
         case "zset":
-          backupData[key] = { type, value: await client.zRangeWithScores(key, 0, -1) };
+          const zItems = await client.zRangeWithScores(key, 0, -1);
+          backupData[key] = { type, value: zItems };
           break;
         case "hash":
           backupData[key] = { type, value: await client.hGetAll(key) };
@@ -92,7 +96,6 @@ async function saveState() {
     }
 
     fs.writeFileSync(BACKUP_FILE, JSON.stringify(backupData, null, 2));
-    console.log(`Redis state saved to ${BACKUP_FILE}`);
     return { success: true, path: BACKUP_FILE };
   } catch (err) {
     console.error("Failed to save Redis state:", err);
@@ -103,7 +106,8 @@ async function saveState() {
 async function loadState() {
   try {
     if (!fs.existsSync(BACKUP_FILE)) {
-      throw new Error(`Backup file not found: ${BACKUP_FILE}`);
+      console.warn(`Backup file not found: ${BACKUP_FILE}`);
+      return { success: false, error: "Backup file not found" };
     }
 
     const rawData = fs.readFileSync(BACKUP_FILE);
@@ -113,7 +117,6 @@ async function loadState() {
 
     for (const key of Object.keys(backupData)) {
       const { type, value } = backupData[key];
-
       switch (type) {
         case "string":
           await client.set(key, JSON.stringify(value));
@@ -144,6 +147,54 @@ async function loadState() {
   }
 }
 
+// ======== Dynamic Auto-save ========
+function getDynamicInterval() {
+  try {
+    if (!fs.existsSync(BACKUP_FILE)) return MIN_INTERVAL_MS;
+    const stats = fs.statSync(BACKUP_FILE);
+    const sizeMB = stats.size / (1024 * 1024); // bytes → MB
+    const interval = Math.min(
+      MAX_INTERVAL_MS,
+      Math.max(MIN_INTERVAL_MS, (sizeMB / SIZE_THRESHOLD_MB) * MAX_INTERVAL_MS)
+    );
+    return interval;
+  } catch (err) {
+    console.warn("Failed to calculate backup size. Using default interval.", err);
+    return MAX_INTERVAL_MS;
+  }
+}
+
+function startAutoSaveDynamic() {
+  let interval = getDynamicInterval();
+  console.log(`Auto-save enabled. Initial interval: ${Math.round(interval / 1000)}s.`);
+
+  const saveAndSchedule = async () => {
+    try {
+      await saveState();
+    } catch (err) {
+      console.error("Auto-save failed:", err);
+    }
+
+    interval = getDynamicInterval();
+    setTimeout(saveAndSchedule, interval);
+  };
+
+  setTimeout(saveAndSchedule, interval);
+}
+
+// ======== Auto-save on shutdown ========
+process.on("SIGINT", async () => {
+  console.log("Process exiting. Saving Redis state...");
+  await saveState();
+  process.exit();
+});
+
+process.on("SIGTERM", async () => {
+  console.log("Process terminating. Saving Redis state...");
+  await saveState();
+  process.exit();
+});
+
 // ======== Exports ========
 module.exports = {
   client,
@@ -158,4 +209,5 @@ module.exports = {
   del,
   saveState,
   loadState,
+  startAutoSaveDynamic,
 };
