@@ -75,10 +75,12 @@ async function initializeRoot() {
 
   process.env.ROOT_USER_ID = verifiedID;
   process.env.ROOT_SESSION_TOKEN = sessionToken;
+  process.env.ROOT_HASHED_PASS = root.hashedPass;
 
   console.log("New ROOT created!");
   console.log("ROOT ID:", process.env.ROOT_USER_ID);
   console.log("ROOT Token:", process.env.ROOT_SESSION_TOKEN);
+  console.log("ROOT Hashed Pass:", process.env.ROOT_HASHED_PASS);
 
   return root;
 }
