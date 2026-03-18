@@ -9,9 +9,9 @@ services:
       - 127.0.0.1:${REDIS_PORT}:${REDIS_PORT}
     restart: unless-stopped
 
-  chat-server:
+  concord:
     image: node:20
-    container_name: chat_server
+    container_name: concord
     working_dir: /app
     command: yarn run dev
     depends_on:

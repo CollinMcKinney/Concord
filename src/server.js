@@ -29,12 +29,10 @@ async function start() {
 
   startAutoSaveDynamic();
   await saveState();
-
-  console.log("Server ready!");
 }
 
 start();
 
 app.listen(process.env.API_PORT, () => {
-  console.log(`Server running at http://localhost:${process.env.API_PORT}`);
+  console.log(`Concord API running at http://localhost:${process.env.API_PORT}`);
 });

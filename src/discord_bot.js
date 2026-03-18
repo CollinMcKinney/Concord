@@ -17,19 +17,19 @@ const webhook = new WebhookClient({
   token: process.env.WEBHOOK_TOKEN,
 });
 
-// ---------------- Discord → Chat Server ----------------
+// ---------------- Discord → Concord ----------------
 bot.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
   try {
     await addMessage(process.env.ROOT_USER_ID, process.env.ROOT_SESSION_TOKEN, message.content);
-    console.log(`Discord → Server: ${message.content}`);
+    console.log(`Discord → Concord: ${message.content}`);
   } catch (err) {
     console.error('Failed to relay Discord message:', err);
   }
 });
 
-// ---------------- Chat Server → Discord ----------------
+// ---------------- Concord → Discord ----------------
 messageEvents.on('messageAdded', async (msg) => {
   if (msg.deleted) 
     return;
@@ -39,7 +39,7 @@ messageEvents.on('messageAdded', async (msg) => {
       content: msg.content,
       username: `User:${msg.actorId}`,
     });
-    console.log(`Server → Discord: ${msg.content}`);
+    console.log(`Concord → Discord: ${msg.content}`);
   } catch (err) {
     console.error('Webhook send failed:', err);
   }

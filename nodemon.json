@@ -1,6 +1,6 @@
 {
   "watch": ["."],
-  "ignore": ["node_modules", "src/chat-server/backups"],
+  "ignore": ["node_modules", "src/backups"],
   "execMap": {
     "js": "node --trace-warnings"
   },
