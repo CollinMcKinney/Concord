@@ -1,8 +1,13 @@
 const { execSync } = require('child_process');
 
 try {
-    console.log('Installing dependencies...');
+
+
+    console.log('Installing global tools...');
     execSync('npm install -g yarn', { stdio: 'inherit' });
+    // execSync('yarn global add pm2', { stdio: 'inherit' });
+
+    console.log('Installing dependencies...');
     execSync('yarn install', { stdio: 'inherit' });
 
     console.log('Starting services...');

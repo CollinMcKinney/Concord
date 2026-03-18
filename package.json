@@ -1,10 +1,11 @@
 {
-  "name": "scapesocietychatserver",
+  "name": "concord",
   "version": "v1.22.22",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node --trace-warnings src/chat-server/server.js"
+    "start": "node --trace-warnings src/chat-server/server.js",
+    "dev": "nodemon src/chat-server/server.js"
   },
   "keywords": [],
   "author": "",
@@ -17,5 +18,8 @@
     "express": "^5.2.1",
     "redis": "^5.11.0",
     "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

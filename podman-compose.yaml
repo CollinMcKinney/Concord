@@ -1,25 +1,25 @@
 services:
   redis:
     image: docker.io/library/redis:latest
-    container_name: redis_server
-    ports:
-      - "6379:6379"
+    container_name: redis
+    ports: # Bind Redis to localhost only so it's accessible from the host machine
+      # for debugging, but not exposed to the public network. Both host and 
+      # container use the same port number (from .env). Other containers
+      # communicate via the internal Compose network using the service name.
+      - 127.0.0.1:${REDIS_PORT}:${REDIS_PORT}
     restart: unless-stopped
 
   chat-server:
     image: node:20
     container_name: chat_server
     working_dir: /app
-    command: yarn run start
+    command: yarn run dev
     depends_on:
       - redis
     env_file:
       - .env
-    environment:
-      REDIS_HOST: redis      # same Redis for both services
-      REDIS_PORT: 6379
     ports:
-      - "3000:3000"
+      - ${API_PORT}:${API_PORT}
     volumes:
       - .:/app
     restart: unless-stopped

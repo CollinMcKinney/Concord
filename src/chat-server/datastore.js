@@ -6,8 +6,8 @@ const path = require("path");
 // =====================
 // Config
 // =====================
-const redisHost = process.env.REDIS_HOST || "127.0.0.1";
-const redisPort = process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT) : 6379;
+const redisHost = process.env.REDIS_HOST;
+const redisPort = process.env.REDIS_PORT;
 const BACKUP_DIR = path.join(__dirname, "backups");
 const BACKUP_FILE = path.join(BACKUP_DIR, "redis.json");
 
@@ -173,7 +173,7 @@ function getDynamicInterval() {
   }
 }
 
-function startAutoSaveDynamic() {
+async function startAutoSaveDynamic() {
   let interval = getDynamicInterval();
   console.log(`Auto-save enabled. Initial interval: ${Math.round(interval / 1000)}s.`);
 

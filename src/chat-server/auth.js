@@ -18,7 +18,6 @@ async function authenticate(userId, hashedPass) {
   console.log("Authenticating user:", { userId });
 
   const user = await datastore.get(`user:${userId}`);
-  console.log("User data retrieved for authentication:", user);
 
   // Don't authenticate blocked users
   if (!user || user.role === Roles.BLOCKED) {

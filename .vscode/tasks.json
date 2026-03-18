@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build & Run Scape Society Discord Integration",
+      "label": "Bootstrap Concord",
       "type": "shell",
       "command": "node --trace-warnings bootstrap.js",
       "problemMatcher": [],

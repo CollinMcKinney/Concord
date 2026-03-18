@@ -7,7 +7,7 @@ node_modules/
 *.env*
 
 # VSCode settings
-.vscode/
+/.vscode/
 *.code-workspace
 
 # Logs

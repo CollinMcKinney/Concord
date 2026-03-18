@@ -8,3 +8,13 @@ When someone is online in runelite, we have a plugin for runelite that reads mes
 
 The messages that an online player in runelite sees or types themselves are
 also uploaded to the redis chat servr database, and forwarded to a discord bot, the discord bot then uses webhooks to "impersonate" whoever originally sent the message.
+
+
+BUILD INSTRUCTIONS:
+
+First, install NodeJS and Podman on your system.
+
+Change to the project root directory and run:
+`node bootstrap.js`
+
+Alternatively if you're using VSCode you can u
