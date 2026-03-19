@@ -1,6 +1,6 @@
 services:
   redis:
-    image: docker.io/library/redis:latest
+    image: docker.io/library/redis:8.6.1-trixie
     container_name: redis
     ports: # Bind Redis to localhost only so it's accessible from the host machine
       # for debugging, but not exposed to the public network. Both host and 
@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
 
   concord:
-    image: node:20
+    image: docker.io/library/node:24.14.0-trixie-slim
     container_name: concord
     working_dir: /app
     command: yarn run dev
