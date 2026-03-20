@@ -1,6 +1,7 @@
 {
   "watch": ["."],
-  "ignore": ["node_modules", "src/backups"],
+  "ext": "*", 
+  "ignore": ["node_modules", "data/redis_backup.json"],
   "execMap": {
     "js": "node --trace-warnings"
   },

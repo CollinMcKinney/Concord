@@ -8,8 +8,8 @@ const path = require("path");
 // =====================
 const redisHost = process.env.REDIS_HOST;
 const redisPort = process.env.REDIS_PORT;
-const BACKUP_DIR = path.join(__dirname, "backups");
-const BACKUP_FILE = path.join(BACKUP_DIR, "redis.json");
+const BACKUP_DIR = path.join(__dirname, "../data");
+const BACKUP_FILE = path.join(BACKUP_DIR, "redis_backup.json");
 
 // Auto-save configuration
 const MIN_INTERVAL_MS = 5000;           // 5 seconds minimum

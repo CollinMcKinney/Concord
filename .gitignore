@@ -12,7 +12,7 @@ tasks.json
 *.log
 
 # backups
-/src/backups/
+/data/redis_backup.json
 
 # yarn
 yarn.lock
