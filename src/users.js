@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const datastore = require("./datastore");
 const auth = require("./auth");
 const { Roles } = require("./roles");
+const runtimeConfig = require("./runtime_config");
 
 /**
  * User class
@@ -38,14 +39,37 @@ class User {
   }
 }
 
-// Auto-run once on module load
+function printRootCredentials() {
+  console.log("Paste these into the admin page:");
+  console.log("ROOT_CREDENTIALS:");
+  console.log(`${process.env.ROOT_USER_ID || ""}=${process.env.ROOT_SESSION_TOKEN || ""}`);
+}
+
+async function deleteUserById(userId) {
+  const user = await datastore.get(`user:${userId}`);
+  if (!user) {
+    await datastore.sRem("users", userId);
+    return false;
+  }
+
+  await datastore.del(`user:${userId}`);
+  await datastore.sRem("users", userId);
+
+  if (user.osrs_name) await datastore.del(`user:osrs:${user.osrs_name}`);
+  if (user.disc_name) await datastore.del(`user:discord:${user.disc_name}`);
+  if (user.forum_name) await datastore.del(`user:forum:${user.forum_name}`);
+
+  return true;
+}
+
 async function initializeRoot() {
-  // Delete existing ROOT if present
-  const existingRoot = await datastore.get("user:ROOT");
-  if (existingRoot) {
-    console.log("Deleting existing ROOT user...");
-    await datastore.del(`user:ROOT`);
-    await datastore.sRem("users", "ROOT");
+  const userIds = await datastore.sMembers("users");
+  for (const userId of userIds) {
+    const existingUser = await datastore.get(`user:${userId}`);
+    if (existingUser?.role === Roles.ROOT) {
+      console.log(`Deleting existing ROOT user ${userId}...`);
+      await deleteUserById(userId);
+    }
   }
 
   // Create new ROOT user
@@ -77,10 +101,8 @@ async function initializeRoot() {
   process.env.ROOT_SESSION_TOKEN = sessionToken;
   process.env.ROOT_HASHED_PASS = root.hashedPass;
 
-  console.log("New ROOT created!");
-  console.log("ROOT ID:", process.env.ROOT_USER_ID);
-  console.log("ROOT Token:", process.env.ROOT_SESSION_TOKEN);
-  console.log("ROOT Hashed Pass:", process.env.ROOT_HASHED_PASS);
+  console.log("New ROOT created for this server run.");
+  printRootCredentials();
 
   return root;
 }
@@ -118,39 +140,94 @@ async function createUserInternal(osrs_name, disc_name, forum_name, role = Roles
   if (disc_name) await datastore.set(`user:discord:${disc_name}`, id);
   if (forum_name) await datastore.set(`user:forum:${forum_name}`, id);
 
-  console.log("User created:", { id, osrs_name, disc_name, forum_name, role });
+  if (role !== Roles.GUEST || osrs_name || disc_name || forum_name) {
+    console.log("User created:", { id, osrs_name, disc_name, forum_name, role });
+  }
 
   return user;
+}
+
+async function createGuestSession(osrsName = "") {
+  const guestSecret = crypto.randomBytes(32).toString("hex");
+  const guest = await createUserInternal(osrsName, "", "", Roles.GUEST, guestSecret);
+  const sessionToken = await auth.authenticate(guest.id, guest.hashedPass);
+
+  return {
+    user: guest,
+    sessionToken,
+  };
+}
+
+async function updateUserOsrsName(userId, osrsName) {
+  const normalizedName = typeof osrsName === "string" ? osrsName.trim() : "";
+  if (!userId || !normalizedName) {
+    return false;
+  }
+
+  const user = await datastore.get(`user:${userId}`);
+  if (!user) {
+    return false;
+  }
+
+  if (user.osrs_name === normalizedName) {
+    return true;
+  }
+
+  if (user.osrs_name) {
+    await datastore.del(`user:osrs:${user.osrs_name}`);
+  }
+
+  user.osrs_name = normalizedName;
+  await datastore.set(`user:${userId}`, user);
+  await datastore.set(`user:osrs:${normalizedName}`, userId);
+  console.log("Guest user named:", {
+    id: userId,
+    osrs_name: normalizedName,
+    disc_name: user.disc_name || "",
+    forum_name: user.forum_name || "",
+    role: user.role,
+  });
+  return true;
 }
 
 /**
  * --- Public user creation ---
  */
 async function createUser(actorId, actorSessionToken, osrs_name, disc_name, forum_name, password) {
-  const verified = await auth.verifySession(actorId, actorSessionToken);
-  if (!verified) throw new Error("Actor not authenticated");
+  const minimumRole = await runtimeConfig.getRequiredRoleForCommand("createUser");
+  if (minimumRole != null) {
+    await auth.requireRole(actorId, actorSessionToken, minimumRole);
+  }
 
-  const actor = await datastore.get(`user:${actorId}`);
-  if (!actor || actor.role < Roles.MODERATOR) throw new Error("Insufficient role");
-
-  return createUserInternal(osrs_name, disc_name, forum_name, Roles.USER, password);
+  return createUserInternal(osrs_name, disc_name, forum_name, Roles.MEMBER, password);
 }
 
 /**
  * --- List all users ---
  */
 async function listUsers(actorId, actorSessionToken) {
-  const verified = await auth.verifySession(actorId, actorSessionToken);
-  if (!verified) throw new Error("Actor not authenticated");
-
-  const actor = await datastore.get(`user:${actorId}`);
-  if (!actor || actor.role < Roles.MODERATOR) throw new Error("Insufficient role");
+  const minimumRole = await runtimeConfig.getRequiredRoleForCommand("listUsers");
+  if (minimumRole != null) {
+    await auth.requireRole(actorId, actorSessionToken, minimumRole);
+  }
 
   const ids = await datastore.sMembers("users");
   const users = [];
+  let rootAlreadyIncluded = false;
   for (const id of ids) {
     const data = await datastore.get(`user:${id}`);
-    if (data) users.push(new User(data));
+    if (!data) {
+      continue;
+    }
+
+    if (data.role === Roles.ROOT) {
+      if (rootAlreadyIncluded) {
+        continue;
+      }
+      rootAlreadyIncluded = true;
+    }
+
+    users.push(new User(data));
   }
   return users;
 }
@@ -159,7 +236,10 @@ async function listUsers(actorId, actorSessionToken) {
  * --- Get a single user ---
  */
 async function getUser(actorId, actorSessionToken, targetId) {
-  await auth.verifySession(actorId, actorSessionToken);
+  const minimumRole = await runtimeConfig.getRequiredRoleForCommand("getUser");
+  if (minimumRole != null) {
+    await auth.requireRole(actorId, actorSessionToken, minimumRole);
+  }
   const data = await datastore.get(`user:${targetId}`);
   return data ? new User(data) : null;
 }
@@ -168,18 +248,21 @@ async function getUser(actorId, actorSessionToken, targetId) {
  * --- Update user role ---
  */
 async function setRole(actorId, actorSessionToken, targetId, newRole) {
-  const verified = await auth.verifySession(actorId, actorSessionToken);
-  if (!verified) return false;
-
-  const actor = await datastore.get(`user:${actorId}`);
+  const minimumRole = await runtimeConfig.getRequiredRoleForCommand("setRole");
+  const actor = minimumRole == null
+    ? await auth.getVerifiedActor(actorId, actorSessionToken)
+    : await auth.requireRole(actorId, actorSessionToken, minimumRole);
   const target = await datastore.get(`user:${targetId}`);
-  if (!actor || !target) return false;
+  const parsedRole = parseRole(newRole);
+  if (!target) return false;
+  if (parsedRole == null) {
+    throw new Error("Invalid role");
+  }
 
-  if (actor.role < Roles.MODERATOR) return false;
   if (actor.role <= target.role) return false;
-  if (actor.role <= newRole) return false;
+  if (actor.role <= parsedRole) return false;
 
-  target.role = parseRole(newRole);
+  target.role = parsedRole;
   await datastore.set(`user:${targetId}`, target);
   return true;
 }
@@ -202,6 +285,9 @@ function parseRole(role) {
 module.exports = {
   User,
   initializeRoot,
+  printRootCredentials,
+  createGuestSession,
+  updateUserOsrsName,
   createUser,
   listUsers,
   getUser,

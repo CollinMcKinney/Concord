@@ -58,6 +58,10 @@ async function sMembers(key) {
   return client.sMembers(key);
 }
 
+async function sRem(key, value) {
+  return client.sRem(key, value);
+}
+
 async function zAdd(key, { score, value } = {}) {
   if (Array.isArray(score)) return client.zAdd(key, score); // allow batch
   return client.zAdd(key, { score, value });
@@ -215,6 +219,7 @@ module.exports = {
   exists,
   sAdd,
   sMembers,
+  sRem,
   zAdd,
   zRange,
   del,

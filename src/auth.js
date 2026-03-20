@@ -8,10 +8,14 @@ const { Roles } = require("./roles");
  */
 const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
 
+function hashSessionToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
   async function register(osrs_name, disc_name, forum_name, hashedPass) {
-    // For registration, we create a new user with the provided details and a default role of USER.
+    // For registration, we create a new user with the provided details and a default role of MEMBER.
     // The password is hashed before storing.
-    return await require("./users").createUserInternal(osrs_name, disc_name, forum_name, Roles.USER, hashedPass);
+    return await require("./users").createUserInternal(osrs_name, disc_name, forum_name, Roles.MEMBER, hashedPass);
   }
 
 async function authenticate(userId, hashedPass) {
@@ -26,7 +30,7 @@ async function authenticate(userId, hashedPass) {
   }
 
   // Allow authentication via session token if the session exists and is valid
-  const existingSession = await datastore.get(`session:${hashedPass}`);
+  const existingSession = await datastore.get(`session:${hashSessionToken(hashedPass)}`);
   if (existingSession && existingSession.userId === userId && existingSession.expires > Date.now()) {
     console.log("Authenticated via existing session token for user:", { userId });
     return hashedPass; // Return the session token itself
@@ -42,20 +46,21 @@ async function authenticate(userId, hashedPass) {
 
   // Create a new session token
   const sessionToken = crypto.randomBytes(32).toString("hex");
+  const sessionTokenHash = hashSessionToken(sessionToken);
   const newSession = {
     userId,
     created: Date.now(),
     expires: Date.now() + SESSION_TTL_MS
   };
 
-  await datastore.set(`session:${sessionToken}`, newSession);
+  await datastore.set(`session:${sessionTokenHash}`, newSession);
 
   console.log("Authentication successful, new session created for user:", { userId });
   return sessionToken;
 }
 
 async function verifySession(actorId, sessionToken) {
-  const session = await datastore.get(`session:${sessionToken}`);
+  const session = await datastore.get(`session:${hashSessionToken(sessionToken)}`);
   if (!session) return null;  
   // Check if session belongs to the actor and hasn't expired
   if (session.userId !== actorId || session.expires < Date.now()) {
@@ -68,8 +73,33 @@ async function verifySession(actorId, sessionToken) {
   return actorId;
 }
 
+async function getVerifiedActor(actorId, sessionToken) {
+  const verifiedId = await verifySession(actorId, sessionToken);
+  if (!verifiedId) {
+    throw new Error("Actor not authenticated");
+  }
+
+  const actor = await datastore.get(`user:${actorId}`);
+  if (!actor) {
+    throw new Error("Actor not found");
+  }
+
+  return actor;
+}
+
+async function requireRole(actorId, sessionToken, minimumRole) {
+  const actor = await getVerifiedActor(actorId, sessionToken);
+  if (actor.role < minimumRole) {
+    throw new Error("Insufficient role");
+  }
+
+  return actor;
+}
+
 module.exports = { 
   register,
   authenticate,
-  verifySession
+  verifySession,
+  getVerifiedActor,
+  requireRole
 };

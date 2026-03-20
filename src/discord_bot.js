@@ -17,14 +17,15 @@ const webhook = new WebhookClient({
   token: process.env.WEBHOOK_TOKEN,
 });
 
-// ---------------- Discord → Concord ----------------
+// ---------------- Discord -> Concord ----------------
 bot.on('messageCreate', async (discordMsg) => {
   if (discordMsg.author.bot) return;
+  if (discordMsg.webhookId) return;
+  if (bot.user && discordMsg.author.id === bot.user.id) return;
 
   try {
     const attachments = [];
 
-    // Uploaded files
     discordMsg.attachments.forEach(att => {
       const type = att.contentType?.startsWith('image') ? 'image'
                  : att.contentType?.startsWith('video') ? 'video'
@@ -32,56 +33,56 @@ bot.on('messageCreate', async (discordMsg) => {
       attachments.push({ type, url: att.url });
     });
 
-    // URLs typed in message body
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const urls = discordMsg.content.match(urlRegex) || [];
     urls.forEach(url => {
       if (!attachments.find(a => a.url === url)) {
         const ext = url.split('.').pop().toLowerCase();
-        const type = ['png','jpg','jpeg','gif','webp'].includes(ext) ? 'image'
-                   : ['mp4','mov','webm'].includes(ext) ? 'video'
+        const type = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext) ? 'image'
+                   : ['mp4', 'mov', 'webm'].includes(ext) ? 'video'
                    : 'link';
         attachments.push({ type, url });
       }
     });
 
-    const packet = new Packet(
-      discordMsg.author.id,
-      discordMsg.content,
-      { name: discordMsg.author.username },
-      undefined,
-      Date.now(),
-      'discord',
-      { attachments }
-    );
+    const packet = new Packet({
+      type: 'chat.message',
+      origin: 'discord',
+      actor: {
+        id: discordMsg.author.id,
+        name: discordMsg.author.username,
+      },
+      data: {
+        body: discordMsg.content,
+        attachments,
+      },
+    });
 
     await addPacket(packet);
-
-    console.log(`Discord → Concord: ${packet.data.body} (${attachments.length} attachments)`);
-
+    console.log(`Discord -> Concord: ${packet.data.body} (${attachments.length} attachments)`);
   } catch (err) {
     console.error('Failed to relay Discord message:', err);
   }
 });
 
-// ---------------- Concord → Discord + RuneLite ----------------
+// ---------------- Concord -> Discord + RuneLite ----------------
 packetEvents.on('packetAdded', async (packetJson) => {
-  console.log(packetJson)
   const packet = Packet.fromJson(packetJson);
   if (packet.deleted) return;
+  console.log(`[discord_bot.packetAdded] ${new Date().toISOString()} packetId=${packet.id} origin=${packet.origin} body=${JSON.stringify(packet.data.body)}`);
 
-  // Always send to RuneLite clients
-  broadcast('chat_message', packet);
+  broadcast(packet);
 
-  // Don't echo Discord-origin packets back to Discord
-  if (packet.origin === 'discord') return;
+  if (packet.type !== 'chat.message') return;
+  if (String(packet.origin).toLowerCase() === 'discord') return;
 
   try {
+    console.log(`[discord_bot.webhookSend] ${new Date().toISOString()} packetId=${packet.id}`);
     await webhook.send({
       content: packet.data.body,
-      username: `User:${packet.actor.name}`,
+      username: `${packet.actor.name}`,
     });
-    console.log(`Concord → Discord: ${packet.data.body}`);
+    console.log(`Concord -> Discord: ${packet.data.body}`);
   } catch (err) {
     console.error('Webhook send failed:', err);
   }

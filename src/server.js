@@ -7,7 +7,7 @@ const { initializeRoot } = require("./users");
 const { attachToServer, broadcast } = require("./runelite_router"); // WS server module
 const adminRouter = require("./admin_router");
 require("./discord_bot"); // auto-start Discord bot
-
+    
 // --- Express setup ---
 const app = express();
 app.use(bodyParser.json());
@@ -17,11 +17,11 @@ app.use("/admin", adminRouter);
 
 // Optional: simple broadcast endpoint for testing
 app.post("/broadcast", (req, res) => {
-  const { event, data } = req.body;
-  if (!event || !data) return res.status(400).json({ error: "Missing event or data" });
+  const { packet } = req.body;
+  if (!packet) return res.status(400).json({ error: "Missing packet" });
 
-  broadcast(event, data);
-  return res.json({ success: true, event, data });
+  broadcast(packet);
+  return res.json({ success: true, packet });
 });
 
 // --- Create HTTP server for both Express and WebSocket ---

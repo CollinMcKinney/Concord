@@ -35,8 +35,7 @@ header h1 { font-size:3em; font-family:'Fredoka One', cursive; color:#BADA55; te
 
 <div class="container">
   <div class="login-card">
-    <label>UserID: <input type="text" id="userID" placeholder="Enter your UserID"></label>
-    <label>SessionToken: <input type="text" id="sessionToken" placeholder="Enter your SessionToken"></label>
+    <label>ROOT Credentials: <input type="text" id="rootCredentials" placeholder="Paste ROOT_CREDENTIALS"></label>
   </div>
 
   <div class="command-panel">
@@ -62,7 +61,12 @@ const adminFunctions = [
   {name:"createUser", description:"Create a user"},
   {name:"listUsers", description:"List all users"},
   {name:"getUser", description:"Get a specific user"},
-  {name:"setRole", description:"Set a user role"}
+  {name:"setRole", description:"Set a user role"},
+  {name:"setEnvVar", description:"Set an environment variable"},
+  {name:"getSuppressedPrefixes", description:"Get suppressed message rules"},
+  {name:"setSuppressedPrefixes", description:"Set suppressed message rules"},
+  {name:"getCommandRoleRequirements", description:"Get command role requirements"},
+  {name:"setCommandRoleRequirement", description:"Set a command role requirement"}
 ];
 
 const adminFunctionParameters = {
@@ -70,7 +74,12 @@ const adminFunctionParameters = {
   addPacket: ["text body"], getPackets: ["limit (default 50)"],
   deletePacket: ["packetID"], editPacket: ["packetID","text body"],
   createUser: ["newUserData"], listUsers: [], getUser: ["targetUserID"],
-  setRole: ["targetUserID","newRole"]
+  setRole: ["targetUserID","newRole"],
+  setEnvVar: ["ENV_KEY","value"],
+  getSuppressedPrefixes: [],
+  setSuppressedPrefixes: ["JSON array of contains strings or /regex/flags rules"],
+  getCommandRoleRequirements: [],
+  setCommandRoleRequirement: ["commandName","roleName (ex: MEMBER) or OPEN"]
 };
 
 // Populate dropdown
@@ -101,16 +110,31 @@ commandSelect.addEventListener("change", updateParameterInputs);
 // ---------------- Execute Command ----------------
 const callButton = document.getElementById("callButton");
 const resultBox = document.getElementById("resultBox");
-const userIDField = document.getElementById("userID");
-const sessionTokenField = document.getElementById("sessionToken");
+const rootCredentialsField = document.getElementById("rootCredentials");
+
+function extractCombinedCredentials(rawValue) {
+  const value = rawValue.trim();
+  const normalized = value.startsWith("ROOT_CREDENTIALS=")
+    ? value.slice("ROOT_CREDENTIALS=".length).trim()
+    : value;
+  const parts = normalized.split("=");
+
+  if (parts.length < 2) {
+    return { userID: "", sessionToken: "" };
+  }
+
+  return {
+    userID: parts[0].trim(),
+    sessionToken: parts.slice(1).join("=").trim(),
+  };
+}
 
 callButton.addEventListener("click", async () => {
   const functionName = commandSelect.value;
   if(!functionName){ alert("Select a command"); return; }
 
-  const userID = userIDField.value.trim();
-  const sessionToken = sessionTokenField.value.trim();
-  if(!userID || !sessionToken){ alert("Enter your UserID and SessionToken"); return; }
+  const { userID, sessionToken } = extractCombinedCredentials(rootCredentialsField.value);
+  if(!userID || !sessionToken){ alert("Enter your combined ROOT credentials"); return; }
 
   const paramInputs = argsInputContainer.querySelectorAll("input");
   const args = Array.from(paramInputs).map(i=>{

@@ -8,7 +8,6 @@ try {
     // Start services with build (pulls base image if needed)
     console.log('Starting services...');
     execSync('podman compose --file podman-compose.yaml up -d --build', { stdio: 'inherit' });
-    console.log('All services started successfully!');
 
     // Commit the Concord container as a local image
     console.log('Committing Concord container to local image "concord:latest"...');
