@@ -3,10 +3,7 @@
   "version": "v1.22.22",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "start": "node --trace-warnings src/server.js",
-    "dev": "nodemon src/server.js"
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",

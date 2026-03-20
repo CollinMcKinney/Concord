@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, WebhookClient } = require('discord.js');
-const { Packet, packetEvents } = require('./packet');
+const { Packet, packetEvents, addPacket } = require('./packet');
 const { broadcast } = require('./runelite_router');
 
 // ---------------- Discord Bot Setup ----------------
@@ -45,7 +45,7 @@ bot.on('messageCreate', async (discordMsg) => {
       }
     });
 
-    const pkt = new Packet(
+    const packet = new Packet(
       discordMsg.author.id,
       discordMsg.content,
       { name: discordMsg.author.username },
@@ -55,10 +55,9 @@ bot.on('messageCreate', async (discordMsg) => {
       { attachments }
     );
 
-    await pkt.save();
-    packetEvents.emit('packetAdded', pkt);
+    await addPacket(packet);
 
-    console.log(`Discord → Concord: ${pkt.data.body} (${attachments.length} attachments)`);
+    console.log(`Discord → Concord: ${packet.data.body} (${attachments.length} attachments)`);
 
   } catch (err) {
     console.error('Failed to relay Discord message:', err);
@@ -66,7 +65,9 @@ bot.on('messageCreate', async (discordMsg) => {
 });
 
 // ---------------- Concord → Discord + RuneLite ----------------
-packetEvents.on('packetAdded', async (packet) => {
+packetEvents.on('packetAdded', async (packetJson) => {
+  console.log(packetJson)
+  const packet = Packet.fromJson(packetJson);
   if (packet.deleted) return;
 
   // Always send to RuneLite clients
