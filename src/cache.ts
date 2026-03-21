@@ -1,0 +1,332 @@
+import { createClient, RedisClientType } from "redis";
+import fs from "fs";
+import path from "path";
+
+/**
+ * Redis `SET` options accepted by the underlying client.
+ */
+type RedisSetOptions = Parameters<RedisClientType["set"]>[2];
+/**
+ * Result shape returned by the underlying Redis `SET` command.
+ */
+type RedisSetResult = Awaited<ReturnType<RedisClientType["set"]>>;
+/**
+ * JSON object shape used when restoring string-backed backup entries.
+ */
+type BackupStringValue = Record<string, unknown>;
+/**
+ * Serialized list entry value stored in the JSON backup.
+ */
+type BackupListValue = string[];
+/**
+ * Serialized set entry value stored in the JSON backup.
+ */
+type BackupSetValue = string[];
+/**
+ * Serialized sorted-set entry value stored in the JSON backup.
+ */
+type BackupZSetValue = Array<{ score: number; value: string }>;
+/**
+ * Serialized hash entry value stored in the JSON backup.
+ */
+type BackupHashValue = Record<string, string>;
+/**
+ * Discriminated union describing every supported backup entry format.
+ */
+type BackupEntry =
+  | { type: "string"; value: BackupStringValue }
+  | { type: "list"; value: BackupListValue }
+  | { type: "set"; value: BackupSetValue }
+  | { type: "zset"; value: BackupZSetValue }
+  | { type: "hash"; value: BackupHashValue };
+
+// =====================
+// Config
+// =====================
+const redisHost = process.env.REDIS_HOST;
+const redisPort = process.env.REDIS_PORT;
+const BACKUP_DIR = path.join(__dirname, "../data");
+const BACKUP_FILE = path.join(BACKUP_DIR, "redis_backup.json");
+
+// Auto-save configuration
+const MIN_INTERVAL_MS = 5000; // 5 seconds minimum
+const MAX_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes maximum
+const SIZE_THRESHOLD_MB = 50; // Target DB size for scaling interval
+
+// Ensure backup directory exists
+if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+
+// =====================
+// Redis Client
+// =====================
+console.log(`Initializing Redis client on ${redisHost}:${redisPort}...`);
+const client: RedisClientType = createClient({
+  socket: { host: redisHost as string, port: parseInt(redisPort as string) }
+});
+
+client.on("error", (err: Error) => console.error("Redis Client Error:", err));
+
+/**
+ * Connects the shared Redis client if it has not been opened yet.
+ */
+async function initStorage(): Promise<void> {
+  if (!client.isOpen) {
+    await client.connect();
+    console.log("Redis connected!");
+  }
+}
+
+// =====================
+// Basic Redis Operations
+// =====================
+/**
+ * Reads and deserializes a JSON value from Redis.
+ * @param key - The Redis key to fetch and decode from JSON.
+ */
+async function get<T>(key: string): Promise<T | null> {
+  const data = await client.get(key);
+  return data ? (JSON.parse(data) as T) : null;
+}
+
+/**
+ * Serializes and stores a JSON value in Redis.
+ * @param key - The Redis key to write.
+ * @param value - The JSON-serializable value to store under the key.
+ * @param options - Optional Redis `SET` flags such as `NX` used to control write behavior.
+ */
+async function set<T>(key: string, value: T, options?: RedisSetOptions): Promise<RedisSetResult> {
+  return client.set(key, JSON.stringify(value), options);
+}
+
+/**
+ * Checks whether a Redis key exists.
+ * @param key - The Redis key to test for existence.
+ */
+async function exists(key: string): Promise<number> {
+  return client.exists(key);
+}
+
+/**
+ * Adds a member to a Redis set.
+ * @param key - The Redis set key to append to.
+ * @param value - The member value to add to the set.
+ */
+async function sAdd(key: string, value: string): Promise<number> {
+  return client.sAdd(key, value);
+}
+
+/**
+ * Reads all members from a Redis set.
+ * @param key - The Redis set key to read from.
+ */
+async function sMembers(key: string): Promise<string[]> {
+  return client.sMembers(key);
+}
+
+/**
+ * Removes a member from a Redis set.
+ * @param key - The Redis set key to remove from.
+ * @param value - The member value to remove from the set.
+ */
+async function sRem(key: string, value: string): Promise<number> {
+  return client.sRem(key, value);
+}
+
+/**
+ * Score/value pair accepted by Redis sorted-set writes in this module.
+ */
+interface ZAddOptions {
+  score: number;
+  value: string;
+}
+
+/**
+ * Adds one or more score/value pairs to a Redis sorted set.
+ * @param key - The sorted-set key to write to.
+ * @param scoreValue - A single score/value pair or an array of pairs to insert.
+ * @returns The number of new sorted-set members added.
+ */
+async function zAdd(key: string, scoreValue: ZAddOptions | ZAddOptions[]): Promise<number> {
+  if (Array.isArray(scoreValue)) return client.zAdd(key, scoreValue);
+  return client.zAdd(key, scoreValue);
+}
+
+/**
+ * Reads a score-ordered range from a Redis sorted set.
+ * @param key - The sorted-set key to read from.
+ * @param start - The inclusive lower index in the sorted range.
+ * @param end - The inclusive upper index in the sorted range.
+ */
+async function zRange(key: string, start: number, end: number): Promise<string[]> {
+  return client.zRange(key, start, end);
+}
+
+/**
+ * Deletes a Redis key.
+ * @param key - The Redis key to delete entirely.
+ */
+async function del(key: string): Promise<number> {
+  return client.del(key);
+}
+
+// =====================
+// JSON Backup / Restore
+// =====================
+/**
+ * JSON backup object keyed by the original Redis key name.
+ */
+interface BackupData {
+  [key: string]: BackupEntry;
+}
+
+/**
+ * Persists the current Redis dataset to the JSON backup file.
+ * @returns A result object describing whether the backup succeeded and where it was written.
+ */
+async function saveState(): Promise<{ success: boolean; path?: string; error?: string }> {
+  try {
+    const keys = await client.keys("*");
+    const backupData: BackupData = {};
+
+    for (const key of keys) {
+      const type = await client.type(key);
+      switch (type) {
+        case "string":
+          backupData[key] = { type, value: JSON.parse(await client.get(key) || "{}") as BackupStringValue };
+          break;
+        case "list":
+          backupData[key] = { type, value: await client.lRange(key, 0, -1) };
+          break;
+        case "set":
+          backupData[key] = { type, value: await client.sMembers(key) };
+          break;
+        case "zset":
+          const zItems = await client.zRangeWithScores(key, 0, -1);
+          backupData[key] = { type, value: zItems };
+          break;
+        case "hash":
+          backupData[key] = { type, value: await client.hGetAll(key) };
+          break;
+        default:
+          console.warn(`Skipping unsupported key type for ${key}: ${type}`);
+      }
+    }
+
+    fs.writeFileSync(BACKUP_FILE, JSON.stringify(backupData, null, 2));
+    return { success: true, path: BACKUP_FILE };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error("Failed to save Redis state:", err);
+    return { success: false, error };
+  }
+}
+
+/**
+ * Restores Redis state from the JSON backup file.
+ * @returns A result object describing whether restore succeeded and, when relevant, why it failed.
+ */
+async function loadState(): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!fs.existsSync(BACKUP_FILE)) {
+      console.warn(`Backup file not found: ${BACKUP_FILE}`);
+      return { success: false, error: "Backup file not found" };
+    }
+
+    const rawData = fs.readFileSync(BACKUP_FILE);
+    const backupData: BackupData = JSON.parse(rawData.toString());
+
+    await client.flushDb();
+
+    for (const key of Object.keys(backupData)) {
+      const entry = backupData[key];
+      switch (entry.type) {
+        case "string":
+          await client.set(key, JSON.stringify(entry.value));
+          break;
+        case "list":
+          if (entry.value.length) await client.rPush(key, entry.value);
+          break;
+        case "set":
+          if (entry.value.length) await client.sAdd(key, entry.value);
+          break;
+        case "zset":
+          if (entry.value.length) {
+            const zItems = entry.value.map((item) => ({ score: item.score, value: item.value }));
+            await client.zAdd(key, zItems);
+          }
+          break;
+        case "hash":
+          if (Object.keys(entry.value).length) await client.hSet(key, entry.value);
+          break;
+      }
+    }
+
+    console.log(`Redis state loaded from ${BACKUP_FILE}`);
+    return { success: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error("Failed to load Redis state:", err);
+    return { success: false, error };
+  }
+}
+
+// =====================
+// Auto-save interval
+// =====================
+/**
+ * Computes the next backup interval based on the current backup file size.
+ * @returns The next auto-save delay in milliseconds.
+ */
+function getDynamicInterval(): number {
+  try {
+    if (!fs.existsSync(BACKUP_FILE)) return MIN_INTERVAL_MS;
+    const stats = fs.statSync(BACKUP_FILE);
+    const sizeMB = stats.size / (1024 * 1024);
+    return Math.min(
+      MAX_INTERVAL_MS,
+      Math.max(MIN_INTERVAL_MS, (sizeMB / SIZE_THRESHOLD_MB) * MAX_INTERVAL_MS)
+    );
+  } catch (err) {
+    console.warn("Failed to calculate backup interval, using max.", err);
+    return MAX_INTERVAL_MS;
+  }
+}
+
+/**
+ * Starts the adaptive auto-save loop for Redis backups.
+ * @returns A promise that resolves after the first timer has been scheduled.
+ */
+async function startAutoSaveDynamic(): Promise<void> {
+  let interval = getDynamicInterval();
+  console.log(`Auto-save enabled. Initial interval: ${Math.round(interval / 1000)}s.`);
+
+  const saveAndSchedule = async (): Promise<void> => {
+    try {
+      await saveState();
+    } catch (err) {
+      console.error("Auto-save failed:", err);
+    }
+
+    interval = getDynamicInterval();
+    setTimeout(saveAndSchedule, interval);
+  };
+
+  setTimeout(saveAndSchedule, interval);
+}
+
+export {
+  client,
+  initStorage,
+  get,
+  set,
+  exists,
+  sAdd,
+  sMembers,
+  sRem,
+  zAdd,
+  zRange,
+  del,
+  saveState,
+  loadState,
+  startAutoSaveDynamic
+};

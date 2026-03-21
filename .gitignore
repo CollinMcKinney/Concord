@@ -1,5 +1,6 @@
 # Node dependencies
 node_modules/
+dist/
 
 # Environment variables
 *.env*
@@ -16,3 +17,6 @@ tasks.json
 
 # yarn
 yarn.lock
+
+# TypeScript
+*.tsbuildinfo

@@ -1,0 +1,55 @@
+import dotenv from "dotenv";
+dotenv.config();
+
+import express, { Express } from "express";
+import bodyParser from "body-parser";
+import http from "http";
+import { initStorage, saveState, loadState, startAutoSaveDynamic } from "./cache";
+import { initializeRoot } from "./user";
+import { attachToServer, broadcast } from "./runelite";
+import adminRouter from "./admin";
+import "./discord"; // auto-start Discord integrations
+import { Packet, type SerializedPacket } from "./packet";
+
+// --- Express setup ---
+const app: Express = express();
+app.use(bodyParser.json());
+
+// Example admin route to broadcast a message to all RuneLite clients
+app.use("/admin", adminRouter);
+
+// Optional: simple broadcast endpoint for testing
+app.post("/broadcast", (req, res) => {
+  const body = req.body as { packet?: SerializedPacket | string };
+  const { packet } = body;
+  if (!packet) return res.status(400).json({ error: "Missing packet" });
+
+  const normalizedPacket = typeof packet === "string" ? Packet.fromJson(packet).serialize() : packet;
+  broadcast(normalizedPacket);
+  return res.json({ success: true, packet });
+});
+
+// --- Create HTTP server for both Express and WebSocket ---
+const server = http.createServer(app);
+
+// --- Attach RuneLite WebSocket server ---
+attachToServer(server);
+
+// --- Start services and listen ---
+/**
+ * Bootstraps storage, restores state, initializes the ROOT session, and starts the HTTP/WebSocket server.
+ * @returns A promise that resolves after the server has been started and the listeners are active.
+ */
+async function start(): Promise<void> {
+  await initStorage();
+  await loadState();
+  await initializeRoot();
+  startAutoSaveDynamic();
+  await saveState();
+
+  server.listen(process.env.API_PORT, () => {
+    console.log(`Concord API + RuneLite WS running at http://localhost:${process.env.API_PORT}`);
+  });
+}
+
+start();

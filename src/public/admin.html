@@ -2,24 +2,737 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Concord Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concord Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-body { margin:0; padding:0; background:#121212; font-family:'Segoe UI',sans-serif; color:#BADA55; text-align:center; overflow-x:hidden; }
-.brazier-container { position:fixed; top:100px; width:220px; height:400px; z-index:0; }
-#flameLeftContainer { left:50px; } #flameRightContainer { right:50px; } .flameCanvas { width:100%; height:100%; display:block; }
-header { position:relative; background:rgba(20,20,20,0.9); margin:20px auto; padding:20px; max-width:900px; border-radius:10px; box-shadow:0 0 40px rgba(0,255,128,0.2), 0 0 80px rgba(0,255,128,0.1); z-index:1; }
-header h1 { font-size:3em; font-family:'Fredoka One', cursive; color:#BADA55; text-shadow:0 0 5px rgba(0,255,255,0.3); margin:0; }
-.container { position:relative; z-index:1; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:20px; padding-top:30px; }
-.login-card { display:flex; justify-content:center; flex-wrap:wrap; gap:20px; background:rgba(30,30,30,0.9); padding:20px 30px; border-radius:10px; box-shadow:0 0 40px rgba(0,255,128,0.15),0 0 80px rgba(0,255,128,0.1); }
-.login-card label { font-weight:bold; flex:1 1 200px; text-align:center; }
-.login-card input { padding:8px; border-radius:5px; border:1px solid #555; background:#121212; color:#BADA55; width:220px; text-align:center; }
-.command-panel { display:flex; flex-direction:column; align-items:center; gap:10px; background:rgba(30,30,30,0.9); padding:20px; border-radius:10px; box-shadow:0 0 40px rgba(0,255,128,0.15),0 0 80px rgba(0,255,128,0.1); }
-.command-panel select, .command-panel input[type=text] { padding:10px; border-radius:5px; border:1px solid #555; background:#121212; color:#BADA55; text-align:center; flex:1; }
-.command-panel button { cursor:pointer; font-weight:bold; transition:0.2s; background:#555; padding:10px 20px; border-radius:5px; }
-.command-panel button:hover { background:#0F0; color:#121212; }
-.command-panel button:active { background:#BADA55; color:#121212; transform:scale(0.95); }
-.result-box { width:100%; max-width:900px; min-height:400px; padding:15px; border-radius:10px; border:1px solid #555; color:#BADA55; overflow-y:auto; white-space:pre-wrap; font-family:monospace; text-align:left; background:rgba(30,30,30,0.85); box-shadow:0 0 20px rgba(0,255,128,0.15); }
+  :root {
+    --bg: #0d1511;
+    --bg-soft: rgba(14, 27, 21, 0.92);
+    --panel: rgba(22, 38, 30, 0.92);
+    --panel-strong: rgba(26, 47, 37, 0.98);
+    --line: rgba(153, 255, 194, 0.16);
+    --line-strong: rgba(153, 255, 194, 0.34);
+    --text: #eef7f1;
+    --muted: #9ab8a7;
+    --accent: #8df0b5;
+    --accent-strong: #c8ff7f;
+    --danger: #ff8585;
+    --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background:
+      radial-gradient(circle at top, rgba(114, 255, 184, 0.18), transparent 30%),
+      linear-gradient(180deg, #0b120f 0%, #121d18 45%, #08100c 100%);
+    color: var(--text);
+    font-family: "IBM Plex Sans", sans-serif;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  .brazier-container {
+    position: fixed;
+    top: 96px;
+    width: 220px;
+    height: 400px;
+    z-index: 0;
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  #flameLeftContainer {
+    left: 36px;
+  }
+
+  #flameRightContainer {
+    right: 36px;
+  }
+
+  .flameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 16px 20px 44px;
+  }
+
+  .hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(20, 36, 28, 0.6), rgba(12, 24, 18, 0.6));
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+
+  .hero-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .hero-title {
+    margin: 0;
+    font-family: "Fredoka One", cursive;
+    font-size: 1.8rem;
+    letter-spacing: 0.04em;
+    color: var(--accent-strong);
+    text-shadow: 0 0 24px rgba(200, 255, 127, 0.18);
+    white-space: nowrap;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: rgba(141, 240, 181, 0.08);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 12px rgba(141, 240, 181, 0.8);
+  }
+
+  /* Navigation Layout */
+  .nav-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  /* Sidebar Navigation */
+  .sidebar {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    overflow: visible;
+    height: fit-content;
+    position: sticky;
+    top: 16px;
+  }
+
+  .sidebar-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-strong);
+  }
+
+  .sidebar-header h2 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+
+  .nav-section {
+    padding: 12px 0;
+  }
+
+  .nav-section-title {
+    padding: 8px 16px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+  }
+
+  .nav-item:hover {
+    background: rgba(141, 240, 181, 0.08);
+  }
+
+  .nav-item.active {
+    background: rgba(141, 240, 181, 0.15);
+    border-left: 3px solid var(--accent);
+  }
+
+  .nav-item-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .nav-item-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nav-item-badge {
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: rgba(141, 240, 181, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(141, 240, 181, 0.3);
+  }
+
+  /* Nav item tooltip */
+  .nav-item[data-tooltip] {
+    position: relative;
+  }
+
+  .nav-item[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%) translateX(8px);
+    padding: 6px 10px;
+    background: var(--panel-strong);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+  }
+
+  .nav-item[data-tooltip]:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(12px);
+  }
+
+  /* Main Content Area */
+  .main-content {
+    min-width: 0;
+  }
+
+  /* Breadcrumb */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+  }
+
+  .breadcrumb-item {
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+
+  .breadcrumb-item:hover {
+    color: var(--accent);
+  }
+
+  .breadcrumb-item.active {
+    color: var(--text);
+    font-weight: 600;
+    cursor: default;
+  }
+
+  .breadcrumb-separator {
+    color: var(--line-strong);
+  }
+
+  /* Content Panel */
+  .content-panel {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .content-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-strong);
+  }
+
+  .content-panel-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .content-panel-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .content-panel-body {
+    padding: 16px;
+  }
+
+  /* Compact Card Styles */
+  .compact-card {
+    background: rgba(22, 38, 30, 0.8);
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    padding: 12px;
+    transition: all 0.2s ease;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .compact-card:last-child {
+    margin-bottom: 0;
+  }
+
+  .compact-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(141, 240, 181, 0.15);
+  }
+
+  .compact-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(141, 240, 181, 0.1);
+    border: 1px solid rgba(141, 240, 181, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .compact-card-body {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  .compact-card-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--accent-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .compact-card-meta {
+    color: var(--muted);
+    font-size: 0.75rem;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .compact-card-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .compact-card-actions button {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    border-radius: 6px;
+  }
+
+  /* Badges */
+  .compact-badge {
+    padding: 3px 7px;
+    border-radius: 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .compact-badge-type { background: rgba(141, 240, 181, 0.2); color: var(--accent); }
+  .compact-badge-origin { background: rgba(200, 255, 127, 0.15); color: var(--accent-strong); }
+  .compact-badge-role { background: rgba(153, 255, 194, 0.15); color: var(--text); }
+  .compact-badge-status { background: rgba(255, 255, 255, 0.1); color: var(--muted); }
+
+  .info-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  /* Tooltip Styles */
+  .tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    border-bottom: 1px dotted var(--muted);
+  }
+
+  .tooltip::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    padding: 6px 10px;
+    background: var(--panel-strong);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+  }
+
+  .tooltip:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-8px);
+  }
+
+  .tooltip-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(154, 184, 167, 0.2);
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(154, 184, 167, 0.3);
+  }
+
+  .tooltip-icon:hover {
+    background: rgba(141, 240, 181, 0.2);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* Buttons */
+  button {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: transform 0.14s ease, filter 0.14s ease, opacity 0.14s ease;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+  }
+
+  button:active {
+    transform: translateY(1px);
+  }
+
+  .primary-button {
+    color: #07110c;
+    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  }
+
+  .secondary-button {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .danger-button {
+    color: #07110c;
+    background: linear-gradient(135deg, #ff8585, #ff6b6b);
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+
+  .empty-state-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .empty-state-description {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  /* Loading State */
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--muted);
+    gap: 10px;
+  }
+
+  .loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: var(--shadow);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .modal-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 1.5rem;
+    padding: 4px;
+    cursor: pointer;
+  }
+
+  .modal-close:hover {
+    color: var(--text);
+  }
+
+  .modal-body {
+    margin-bottom: 20px;
+  }
+
+  .modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* Form Fields */
+  .field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .field label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .field-help {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  input[type="text"],
+  textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(7, 15, 11, 0.86);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9rem;
+  }
+
+  input[type="text"]:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(141, 240, 181, 0.1);
+  }
+
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  /* Toast Notification */
+  .toast-notification {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-strong);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px 16px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    z-index: 2000;
+    animation: toastSlideIn 0.3s ease;
+  }
+
+  @keyframes toastSlideIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  @keyframes toastSlideOut {
+    from { opacity: 1; transform: translateX(-50%) translateY(0); }
+    to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  }
+
+  /* Responsive */
+  @media (max-width: 1040px) {
+    .brazier-container {
+      display: none;
+    }
+
+    .nav-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      position: static;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .shell {
+      padding-inline: 14px;
+    }
+
+    .hero,
+    .content-panel-body,
+    .content-panel-header {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -31,152 +744,1051 @@ header h1 { font-size:3em; font-family:'Fredoka One', cursive; color:#BADA55; te
   <canvas id="flameRight" class="flameCanvas"></canvas>
 </div>
 
-<header><h1>Concord Dashboard</h1></header>
+<main class="shell">
+  <section class="hero">
+    <div class="hero-top">
+      <h1 class="hero-title">Concord Admin</h1>
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        <span id="sessionSummary">No credentials</span>
+      </div>
+    </div>
+    <button type="button" class="secondary-button" id="credentialsButton" title="Set your authentication credentials">🔑 Credentials</button>
+  </section>
 
-<div class="container">
-  <div class="login-card">
-    <label>ROOT Credentials: <input type="text" id="rootCredentials" placeholder="Paste ROOT_CREDENTIALS"></label>
+  <div class="nav-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>Navigation</h2>
+      </div>
+      <nav class="nav-section">
+        <div class="nav-section-title">Cache</div>
+        <button class="nav-item active" data-view="packets" data-tooltip="View and manage all packets in the cache">
+          <span class="nav-item-icon">📦</span>
+          <span class="nav-item-label">Packets</span>
+          <span class="nav-item-badge" id="packetCount">0</span>
+        </button>
+        <button class="nav-item" data-view="users" data-tooltip="View and manage all users in the cache">
+          <span class="nav-item-icon">👤</span>
+          <span class="nav-item-label">Users</span>
+          <span class="nav-item-badge" id="userCount">0</span>
+        </button>
+      </nav>
+      <nav class="nav-section">
+        <div class="nav-section-title">Configuration</div>
+        <button class="nav-item" data-view="prefixes" data-tooltip="Blocks messages containing any configured text">
+          <span class="nav-item-icon">🚫</span>
+          <span class="nav-item-label">Message Suppression</span>
+        </button>
+        <button class="nav-item" data-view="commandRoles" data-tooltip="View and edit command permission requirements">
+          <span class="nav-item-icon">⚙️</span>
+          <span class="nav-item-label">Permissions</span>
+        </button>
+      </nav>
+      <nav class="nav-section">
+        <div class="nav-section-title">System</div>
+        <button class="nav-item" data-view="system" data-tooltip="Save and load cache state from disk">
+          <span class="nav-item-icon">🔧</span>
+          <span class="nav-item-label">System</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Breadcrumb -->
+      <div class="breadcrumb" id="breadcrumb">
+        <span class="breadcrumb-item active">Home</span>
+      </div>
+
+      <!-- Dynamic Content Panel -->
+      <div class="content-panel" id="contentPanel">
+        <!-- Content injected by JavaScript -->
+      </div>
+    </main>
   </div>
+</main>
 
-  <div class="command-panel">
-    <select id="commandSelect"></select>
-    <div id="argsInputContainer" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
-    <button id="callButton">Run Command</button>
+<!-- Credentials Modal -->
+<div class="modal-overlay" id="credentialsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">🔑 Credentials</h3>
+      <button class="modal-close" onclick="closeCredentialsModal()" title="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="rootCredentials">Combined actor credentials</label>
+        <input type="text" id="rootCredentials" placeholder="userId=sessionToken" spellcheck="false" autocomplete="off">
+        <div class="field-help">Paste a raw `userId=sessionToken` pair. Leave blank for open commands.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary-button" onclick="clearCredentials()" title="Clear credentials">Clear</button>
+      <button type="button" class="primary-button" onclick="closeCredentialsModal()" title="Save and close">Done</button>
+    </div>
   </div>
+</div>
 
-  <div class="result-box" id="resultBox">Result will appear here...</div>
+<!-- Edit Packet Modal -->
+<div class="modal-overlay" id="editPacketModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">✏️ Edit Packet</h3>
+      <button class="modal-close" onclick="closeEditPacketModal()" title="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editPacketId">
+      <div class="field">
+        <label for="editPacketContent">Message Content</label>
+        <textarea id="editPacketContent" placeholder="Enter new message content..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary-button" onclick="closeEditPacketModal()" title="Close without saving">Cancel</button>
+      <button type="button" class="primary-button" onclick="savePacketEdit()" title="Save your changes">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Set Role Modal -->
+<div class="modal-overlay" id="setRoleModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">🎭 Set User Role</h3>
+      <button class="modal-close" onclick="closeSetRoleModal()" title="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="setRoleUserId">
+      <div class="field">
+        <label for="setRoleSelect">New Role</label>
+        <select id="setRoleSelect" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
+          <option value="0">BLOCKED</option>
+          <option value="1">GUEST</option>
+          <option value="2">MEMBER</option>
+          <option value="3">MODERATOR</option>
+          <option value="4">ADMIN</option>
+          <option value="5">OWNER</option>
+          <option value="6">ROOT</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary-button" onclick="closeSetRoleModal()" title="Close without saving">Cancel</button>
+      <button type="button" class="primary-button" onclick="saveRoleChange()" title="Save the new role">Save Role</button>
+    </div>
+  </div>
 </div>
 
 <script>
-// ---------------- Admin Functions ----------------
-const adminFunctions = [
-  {name:"authenticate", description:"Authenticate a user"},
-  {name:"verifySession", description:"Verify a session token"},
-  {name:"saveState", description:"Save application state"},
-  {name:"loadState", description:"Load application state"},
-  {name:"addPacket", description:"Add a packet"},
-  {name:"getPackets", description:"Get all packets"},
-  {name:"deletePacket", description:"Delete a packet"},
-  {name:"editPacket", description:"Edit a packet"},
-  {name:"createUser", description:"Create a user"},
-  {name:"listUsers", description:"List all users"},
-  {name:"getUser", description:"Get a specific user"},
-  {name:"setRole", description:"Set a user role"},
-  {name:"setEnvVar", description:"Set an environment variable"},
-  {name:"getSuppressedPrefixes", description:"Get suppressed message rules"},
-  {name:"setSuppressedPrefixes", description:"Set suppressed message rules"},
-  {name:"getCommandRoleRequirements", description:"Get command role requirements"},
-  {name:"setCommandRoleRequirement", description:"Set a command role requirement"}
-];
+// =====================
+// Helper Functions
+// =====================
+function escapeHtml(text) {
+  if (text === null || text === undefined) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
 
-const adminFunctionParameters = {
-  authenticate: [], verifySession: [], saveState: [], loadState: [],
-  addPacket: ["text body"], getPackets: ["limit (default 50)"],
-  deletePacket: ["packetID"], editPacket: ["packetID","text body"],
-  createUser: ["newUserData"], listUsers: [], getUser: ["targetUserID"],
-  setRole: ["targetUserID","newRole"],
-  setEnvVar: ["ENV_KEY","value"],
-  getSuppressedPrefixes: [],
-  setSuppressedPrefixes: ["JSON array of contains strings or /regex/flags rules"],
-  getCommandRoleRequirements: [],
-  setCommandRoleRequirement: ["commandName","roleName (ex: MEMBER) or OPEN"]
-};
+function getRoleName(roleValue) {
+  const roleNames = {
+    0: 'BLOCKED',
+    1: 'GUEST',
+    2: 'MEMBER',
+    3: 'MODERATOR',
+    4: 'ADMIN',
+    5: 'OWNER',
+    6: 'ROOT'
+  };
+  return roleNames[roleValue] || 'MEMBER';
+}
 
-// Populate dropdown
-const commandSelect = document.getElementById("commandSelect");
-adminFunctions.forEach(f => {
-  const opt = document.createElement("option");
-  opt.value = f.name;
-  opt.textContent = `${f.name} — ${f.description}`;
-  commandSelect.appendChild(opt);
-});
+function getRoleColor(role) {
+  const colors = {
+    'ROOT': '#ff8585',
+    'OWNER': '#c8ff7f',
+    'ADMIN': '#8df0b5',
+    'MODERATOR': '#9ab8a7',
+    'MEMBER': '#eef7f1',
+    'BLOCKED': '#666666',
+    'GUEST': '#888888'
+  };
+  if (role === null || role === undefined) return '#9ab8a7';
+  const roleKey = typeof role === 'number' ? getRoleName(role) : String(role).toUpperCase();
+  return colors[roleKey] || '#9ab8a7';
+}
 
-// Dynamic args
-const argsInputContainer = document.getElementById("argsInputContainer");
-function updateParameterInputs() {
-  const command = commandSelect.value;
-  argsInputContainer.innerHTML = "";
-  const params = adminFunctionParameters[command] || [];
-  params.forEach(param => {
-    const input = document.createElement("input");
-    input.type = "text"; input.placeholder = param;
-    input.dataset.paramName = param; input.style.flex = "1";
-    argsInputContainer.appendChild(input);
+function showToast(message) {
+  const existing = document.querySelector('.toast-notification');
+  if (existing) existing.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'toastSlideOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
+}
+
+function copyToClipboard(text, message) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast(message || `Copied: ${text.slice(0, 20)}...`);
+  }).catch(err => {
+    console.error('Failed to copy:', err);
   });
 }
-updateParameterInputs();
-commandSelect.addEventListener("change", updateParameterInputs);
 
-// ---------------- Execute Command ----------------
-const callButton = document.getElementById("callButton");
-const resultBox = document.getElementById("resultBox");
-const rootCredentialsField = document.getElementById("rootCredentials");
+// =====================
+// State Management
+// =====================
+const state = {
+  currentView: 'packets',
+  breadcrumbs: [{ label: 'Home', view: 'home' }],
+  credentials: { userId: '', sessionToken: '' },
+  packets: [],
+  users: [],
+  prefixes: [],
+  commandRoles: {},
+  selectedPacket: null,
+  selectedUser: null
+};
 
+// =====================
+// Credentials
+// =====================
 function extractCombinedCredentials(rawValue) {
   const value = rawValue.trim();
-  const normalized = value.startsWith("ROOT_CREDENTIALS=")
-    ? value.slice("ROOT_CREDENTIALS=".length).trim()
+  const normalized = value.startsWith('ROOT_CREDENTIALS=')
+    ? value.slice('ROOT_CREDENTIALS='.length).trim()
     : value;
-  const parts = normalized.split("=");
+  const parts = normalized.split('=');
 
   if (parts.length < 2) {
-    return { userID: "", sessionToken: "" };
+    return { userID: '', sessionToken: '' };
   }
 
   return {
     userID: parts[0].trim(),
-    sessionToken: parts.slice(1).join("=").trim(),
+    sessionToken: parts.slice(1).join('=').trim(),
   };
 }
 
-callButton.addEventListener("click", async () => {
-  const functionName = commandSelect.value;
-  if(!functionName){ alert("Select a command"); return; }
-
-  const { userID, sessionToken } = extractCombinedCredentials(rootCredentialsField.value);
-  if(!userID || !sessionToken){ alert("Enter your combined ROOT credentials"); return; }
-
-  const paramInputs = argsInputContainer.querySelectorAll("input");
-  const args = Array.from(paramInputs).map(i=>{
-    const val=i.value.trim(); if(!val) return val;
-    try{return JSON.parse(val);}catch{return val;}
-  });
-
-  let fullArgs = [userID, sessionToken, ...args];
-
-  // Automatically append actorDetails for addPacket
-  if(functionName === "addPacket") {
-    fullArgs.push({ name: "ROOT", roles: [], permissions: [] });
+function updateSessionSummary() {
+  const credentials = extractCombinedCredentials(document.getElementById('rootCredentials').value);
+  state.credentials = credentials;
+  const summary = document.getElementById('sessionSummary');
+  
+  if (!credentials.userID || !credentials.sessionToken) {
+    summary.textContent = 'No credentials';
+    return;
   }
 
-  try{
-    const response = await fetch("/admin/call", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({functionName,args:fullArgs})
+  const shortUserId = credentials.userID.length > 12
+    ? credentials.userID.slice(0, 12) + '...'
+    : credentials.userID;
+  summary.textContent = `Ready as ${shortUserId}`;
+}
+
+function openCredentialsModal() {
+  document.getElementById('credentialsModal').classList.add('active');
+}
+
+function closeCredentialsModal() {
+  document.getElementById('credentialsModal').classList.remove('active');
+  updateSessionSummary();
+  // Refresh current view if credentials changed
+  loadCurrentView();
+}
+
+function clearCredentials() {
+  document.getElementById('rootCredentials').value = '';
+  updateSessionSummary();
+}
+
+document.getElementById('credentialsButton').addEventListener('click', openCredentialsModal);
+
+// =====================
+// Navigation
+// =====================
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const view = item.dataset.view;
+    navigateTo(view);
+  });
+});
+
+function navigateTo(view, params = {}) {
+  state.currentView = view;
+  state.selectedPacket = null;
+  state.selectedUser = null;
+  
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.view === view);
+  });
+  
+  // Update breadcrumbs
+  updateBreadcrumbs(view, params);
+  
+  // Load view
+  loadCurrentView();
+}
+
+function updateBreadcrumbs(view, params) {
+  const breadcrumb = document.getElementById('breadcrumb');
+  const viewLabels = {
+    packets: 'Packets',
+    users: 'Users',
+    prefixes: 'Message Suppression',
+    commandRoles: 'Permissions',
+    system: 'System'
+  };
+  
+  let html = '<span class="breadcrumb-item" onclick="navigateTo(\'home\')">Home</span>';
+  html += '<span class="breadcrumb-separator">›</span>';
+  
+  if (view === 'packet-detail' && params.packetId) {
+    html += '<span class="breadcrumb-item" onclick="navigateTo(\'packets\')">Packets</span>';
+    html += '<span class="breadcrumb-separator">›</span>';
+    html += `<span class="breadcrumb-item active">${escapeHtml(params.packetId.slice(0, 12))}...</span>`;
+  } else if (view === 'user-detail' && params.userId) {
+    html += '<span class="breadcrumb-item" onclick="navigateTo(\'users\')">Users</span>';
+    html += '<span class="breadcrumb-separator">›</span>';
+    html += `<span class="breadcrumb-item active">${escapeHtml(params.userName || params.userId.slice(0, 12))}</span>`;
+  } else {
+    html += `<span class="breadcrumb-item active">${viewLabels[view] || view}</span>`;
+  }
+  
+  breadcrumb.innerHTML = html;
+}
+
+// =====================
+// API Calls
+// =====================
+async function apiCall(functionName, args = []) {
+  const credentials = state.credentials;
+  const fullArgs = credentials.userID && credentials.sessionToken
+    ? [credentials.userID, credentials.sessionToken, '', ...args]
+    : [null, '', '', ...args];
+
+  const response = await fetch('/admin/call', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ functionName, args: fullArgs })
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || data.message || 'API call failed');
+  }
+  
+  return data.result !== undefined ? data.result : data;
+}
+
+// =====================
+// View Loaders
+// =====================
+async function loadCurrentView() {
+  const contentPanel = document.getElementById('contentPanel');
+  contentPanel.innerHTML = `
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <span>Loading...</span>
+    </div>
+  `;
+  
+  try {
+    switch (state.currentView) {
+      case 'packets':
+        await loadPacketsView();
+        break;
+      case 'packet-detail':
+        await loadPacketDetailView();
+        break;
+      case 'users':
+        await loadUsersView();
+        break;
+      case 'user-detail':
+        await loadUserDetailView();
+        break;
+      case 'prefixes':
+        await loadPrefixesView();
+        break;
+      case 'commandRoles':
+        await loadCommandRolesView();
+        break;
+      case 'system':
+        await loadSystemView();
+        break;
+      default:
+        await loadPacketsView();
+    }
+  } catch (error) {
+    contentPanel.innerHTML = `
+      <div class="content-panel-body">
+        <div class="empty-state">
+          <div class="empty-state-icon">⚠️</div>
+          <div class="empty-state-title">Error Loading View</div>
+          <div class="empty-state-description">${escapeHtml(error.message)}</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+async function loadPacketsView() {
+  const packets = await apiCall('getPackets', [50]);
+  state.packets = packets || [];
+  
+  // Update badge count
+  document.getElementById('packetCount').textContent = state.packets.length;
+  
+  const contentPanel = document.getElementById('contentPanel');
+  contentPanel.innerHTML = `
+    <div class="content-panel-header">
+      <h2 class="content-panel-title">
+        📦 Recent Packets
+        <span class="compact-badge compact-badge-status">${state.packets.length} total</span>
+      </h2>
+      <div class="content-panel-actions">
+        <button type="button" class="primary-button" onclick="openAddPacketModal()" title="Create a new packet">+ Add Packet</button>
+        <button type="button" class="secondary-button" onclick="loadCurrentView()" title="Reload this view from the cache">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="content-panel-body">
+      ${state.packets.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-state-icon">📦</div>
+          <div class="empty-state-title">No Packets</div>
+          <div class="empty-state-description">No packets found in the cache. Click "Add Packet" to create one.</div>
+        </div>
+      ` : state.packets.slice(0, 20).map(packet => renderPacketCard(packet)).join('')}
+    </div>
+  `;
+}
+
+function renderPacketCard(packet) {
+  const ts = new Date(packet.timestamp);
+  return `
+    <div class="compact-card" data-packet-id="${escapeHtml(packet.id)}">
+      <div class="compact-card-icon" title="Packet type: ${escapeHtml(packet.type)}">📦</div>
+      <div class="compact-card-body">
+        <div class="compact-card-title">${escapeHtml(packet.actor.name || 'Unknown')}</div>
+        <div class="compact-card-meta">
+          <span class="compact-badge compact-badge-type">${escapeHtml(packet.type)}</span>
+          <span class="compact-badge compact-badge-origin">${escapeHtml(packet.origin)}</span>
+          <span class="info-pill">🕐 ${escapeHtml(ts.toLocaleTimeString())}</span>
+          <span class="info-pill">📅 ${escapeHtml(ts.toLocaleDateString())}</span>
+        </div>
+        <div class="compact-card-meta" style="margin-top: 4px;">
+          <span class="tooltip" data-tip="${escapeHtml(packet.data.body || 'No content')}">
+            <span class="tooltip-icon">?</span>
+            <span style="color: var(--muted); font-size: 0.75rem; margin-left: 4px;">Preview content (hover)</span>
+          </span>
+        </div>
+      </div>
+      <div class="compact-card-actions">
+        <button type="button" class="secondary-button" data-action="view-packet" title="View details">👁️</button>
+        <button type="button" class="secondary-button" data-action="edit-packet" title="Edit">✏️</button>
+        <button type="button" class="danger-button" data-action="delete-packet" title="Delete">🗑️</button>
+      </div>
+    </div>
+  `;
+}
+
+async function loadPacketDetailView() {
+  if (!state.selectedPacket) {
+    navigateTo('packets');
+    return;
+  }
+  
+  const contentPanel = document.getElementById('contentPanel');
+  const packet = state.selectedPacket;
+  const ts = new Date(packet.timestamp);
+  
+  contentPanel.innerHTML = `
+    <div class="content-panel-header">
+      <h2 class="content-panel-title">📦 Packet Details</h2>
+      <div class="content-panel-actions">
+        <button type="button" class="secondary-button" data-action="back-to-packets" title="Go back to packets list">← Back</button>
+        <button type="button" class="primary-button" data-action="edit-packet-detail" data-packet-id="${escapeHtml(packet.id)}" data-packet-content="${escapeHtml(packet.data.body || '')}" title="Edit this packet">✏️ Edit</button>
+        <button type="button" class="danger-button" data-action="delete-packet-detail" data-packet-id="${escapeHtml(packet.id)}" title="Delete this packet">🗑️ Delete</button>
+      </div>
+    </div>
+    <div class="content-panel-body">
+      <div class="compact-card" style="display: block;">
+        <div class="compact-card-body">
+          <div class="compact-card-meta" style="margin-bottom: 12px;">
+            <span class="compact-badge compact-badge-type">${escapeHtml(packet.type)}</span>
+            <span class="compact-badge compact-badge-origin">${escapeHtml(packet.origin)}</span>
+            <span class="compact-badge compact-badge-status">ID: ${escapeHtml(packet.id.slice(-8))}</span>
+          </div>
+          <div class="field">
+            <label>Author</label>
+            <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(packet.actor.name || 'Unknown')}</div>
+          </div>
+          <div class="field">
+            <label>Timestamp</label>
+            <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(ts.toLocaleString())}</div>
+          </div>
+          <div class="field">
+            <label>Content</label>
+            <div style="color: var(--text); font-size: 0.95rem; white-space: pre-wrap;">${escapeHtml(packet.data.body || 'No content')}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadUsersView() {
+  const users = await apiCall('listUsers');
+  state.users = users || [];
+  
+  // Update badge count
+  document.getElementById('userCount').textContent = state.users.length;
+  
+  const contentPanel = document.getElementById('contentPanel');
+  contentPanel.innerHTML = `
+    <div class="content-panel-header">
+      <h2 class="content-panel-title">
+        👤 Users
+        <span class="compact-badge compact-badge-status">${state.users.length} total</span>
+      </h2>
+      <div class="content-panel-actions">
+        <button type="button" class="primary-button" onclick="openCreateUserModal()" title="Create a new user">+ Add User</button>
+        <button type="button" class="secondary-button" onclick="loadCurrentView()" title="Reload this view from the cache">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="content-panel-body">
+      ${state.users.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-state-icon">👤</div>
+          <div class="empty-state-title">No Users</div>
+          <div class="empty-state-description">No users found in the cache. Click "Add User" to create one.</div>
+        </div>
+      ` : state.users.map(user => renderUserCard(user)).join('')}
+    </div>
+  `;
+}
+
+function renderUserCard(user) {
+  const roleValue = user.role;
+  const roleName = typeof roleValue === 'number' ? getRoleName(roleValue) : String(roleValue || 'Unknown');
+  const roleColor = getRoleColor(roleValue);
+  const displayName = user.osrs_name || user.disc_name || 'User';
+
+  return `
+    <div class="compact-card" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(displayName)}">
+      <div class="compact-card-icon" style="background: ${roleColor}20; border-color: ${roleColor}40;" title="User ID: ${escapeHtml(user.id)}">👤</div>
+      <div class="compact-card-body">
+        <div class="compact-card-title">${escapeHtml(user.osrs_name || user.disc_name || user.forum_name || 'Unnamed')}</div>
+        <div class="compact-card-meta">
+          <span class="compact-badge compact-badge-role" style="background: ${roleColor}30; color: ${roleColor};">${escapeHtml(roleName)}</span>
+          <span class="info-pill">🆔 ${escapeHtml(user.id.slice(-8))}</span>
+          ${user.osrs_name ? `<span class="info-pill">🎮 ${escapeHtml(user.osrs_name)}</span>` : ''}
+          ${user.disc_name ? `<span class="info-pill">💬 ${escapeHtml(user.disc_name)}</span>` : ''}
+          ${user.forum_name ? `<span class="info-pill">📝 ${escapeHtml(user.forum_name)}</span>` : ''}
+        </div>
+      </div>
+      <div class="compact-card-actions">
+        <button type="button" class="secondary-button" data-action="view-user" title="View user details">👁️</button>
+        <button type="button" class="secondary-button" data-action="set-role" title="Change user's role">🎭</button>
+        <button type="button" class="secondary-button" data-action="copy-id" title="Copy user ID to clipboard">📋</button>
+      </div>
+    </div>
+  `;
+}
+
+async function loadUserDetailView() {
+  if (!state.selectedUser) {
+    navigateTo('users');
+    return;
+  }
+  
+  const user = state.selectedUser;
+  const roleValue = user.role;
+  const roleName = typeof roleValue === 'number' ? getRoleName(roleValue) : String(roleValue || 'Unknown');
+  const roleColor = getRoleColor(roleValue);
+  
+  const contentPanel = document.getElementById('contentPanel');
+  contentPanel.innerHTML = `
+    <div class="content-panel-header">
+      <h2 class="content-panel-title">👤 User Details</h2>
+      <div class="content-panel-actions">
+        <button type="button" class="secondary-button" data-action="back-to-users" title="Go back to users list">← Back</button>
+        <button type="button" class="primary-button" data-action="set-role-detail" data-user-id="${escapeHtml(user.id)}" data-role="${roleValue}" title="Change this user's role">🎭 Set Role</button>
+      </div>
+    </div>
+    <div class="content-panel-body">
+      <div class="compact-card" style="display: block;">
+        <div class="compact-card-body">
+          <div class="compact-card-meta" style="margin-bottom: 12px;">
+            <span class="compact-badge compact-badge-role" style="background: ${roleColor}30; color: ${roleColor};">${escapeHtml(roleName)}</span>
+            <span class="compact-badge compact-badge-status">ID: ${escapeHtml(user.id.slice(-8))}</span>
+          </div>
+          ${user.osrs_name ? `
+            <div class="field">
+              <label><span class="tooltip" data-tip="Old School RuneScape character name"><span class="tooltip-icon">?</span></span> OSRS Name</label>
+              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.osrs_name)}</div>
+            </div>
+          ` : ''}
+          ${user.disc_name ? `
+            <div class="field">
+              <label><span class="tooltip" data-tip="Discord username"><span class="tooltip-icon">?</span></span> Discord Name</label>
+              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.disc_name)}</div>
+            </div>
+          ` : ''}
+          ${user.forum_name ? `
+            <div class="field">
+              <label><span class="tooltip" data-tip="Forum username"><span class="tooltip-icon">?</span></span> Forum Name</label>
+              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.forum_name)}</div>
+            </div>
+          ` : ''}
+          ${user.created_at ? `
+            <div class="field">
+              <label>Created At</label>
+              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(new Date(user.created_at).toLocaleString())}</div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadPrefixesView() {
+  const prefixes = await apiCall('getSuppressedPrefixes');
+  state.prefixes = prefixes || [];
+  
+  const contentPanel = document.getElementById('contentPanel');
+  contentPanel.innerHTML = `
+    <div class="content-panel-header">
+      <h2 class="content-panel-title">🚫 Message Suppression</h2>
+      <div class="content-panel-actions">
+        <button type="button" class="primary-button" onclick="openSetPrefixesModal()" title="Edit the list of suppressed strings">✏️ Edit</button>
+        <button type="button" class="secondary-button" onclick="loadCurrentView()" title="Reload this view from the cache">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="content-panel-body">
+      ${state.prefixes.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-state-icon">🚫</div>
+          <div class="empty-state-title">No Suppressed Strings</div>
+          <div class="empty-state-description">No strings are currently suppressed. Messages containing any of the configured strings will not be bridged.</div>
+        </div>
+      ` : state.prefixes.map(prefix => `
+        <div class="compact-card">
+          <div class="compact-card-icon" style="background: rgba(153, 255, 194, 0.1);">🚫</div>
+          <div class="compact-card-body">
+            <div class="compact-card-title">${escapeHtml(prefix)}</div>
+            <div class="compact-card-meta">
+              <span class="compact-badge compact-badge-status">Suppressed</span>
+              <span class="tooltip" data-tip="Messages containing this string will not be bridged">
+                <span class="info-pill">ℹ️ Contains check</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function loadCommandRolesView() {
+  const roles = await apiCall('getCommandRoleRequirements');
+  state.commandRoles = roles || {};
+  
+  const contentPanel = document.getElementById('contentPanel');
+  contentPanel.innerHTML = `
+    <div class="content-panel-header">
+      <h2 class="content-panel-title">⚙️ Permissions</h2>
+      <div class="content-panel-actions">
+        <button type="button" class="secondary-button" onclick="loadCurrentView()" title="Reload this view from the cache">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="content-panel-body">
+      ${Object.entries(state.commandRoles).map(([cmd, roleData]) => {
+        const roleName = roleData.roleName || 'OPEN';
+        const roleValue = roleData.roleValue;
+        const roleColor = getRoleColor(roleValue);
+        return `
+          <div class="compact-card">
+            <div class="compact-card-icon" style="background: rgba(141, 240, 181, 0.1);">⚙️</div>
+            <div class="compact-card-body">
+              <div class="compact-card-title">${escapeHtml(cmd)}</div>
+              <div class="compact-card-meta">
+                <span class="compact-badge compact-badge-role" style="background: ${roleColor}30; color: ${roleColor};">${escapeHtml(roleName)}</span>
+                ${roleData.overridden ? '<span class="compact-badge compact-badge-status">Overridden</span>' : '<span class="compact-badge compact-badge-status">Default</span>'}
+                <span class="tooltip" data-tip="Minimum role required to execute this command">
+                  <span class="info-pill">ℹ️ Role requirement</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+async function loadSystemView() {
+  const contentPanel = document.getElementById('contentPanel');
+  contentPanel.innerHTML = `
+    <div class="content-panel-header">
+      <h2 class="content-panel-title">🔧 System</h2>
+    </div>
+    <div class="content-panel-body">
+      <div class="compact-card" style="display: block;">
+        <div class="compact-card-body">
+          <div class="field">
+            <label>Save State</label>
+            <div style="color: var(--muted); font-size: 0.85rem; margin-bottom: 8px;">Persist the current cache contents to the on-disk backup file.</div>
+            <button type="button" class="primary-button" onclick="saveState()" title="Save all cache data to disk">💾 Save State</button>
+          </div>
+          <div class="field" style="margin-top: 16px;">
+            <label>Load State</label>
+            <div style="color: var(--muted); font-size: 0.85rem; margin-bottom: 8px;">Restore the cache contents from the on-disk backup file.</div>
+            <button type="button" class="secondary-button" onclick="loadState()" title="Load cache data from disk backup">📂 Load State</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// =====================
+// Actions
+// =====================
+function viewPacket(packetId) {
+  const packet = state.packets.find(p => p.id === packetId);
+  state.selectedPacket = packet;
+  navigateTo('packet-detail', { packetId });
+}
+
+function viewUser(userId, userName) {
+  const user = state.users.find(u => u.id === userId);
+  state.selectedUser = user;
+  navigateTo('user-detail', { userId, userName });
+}
+
+async function deletePacket(packetId) {
+  if (!confirm(`Are you sure you want to delete packet ${packetId.slice(0, 8)}...?`)) {
+    return;
+  }
+  
+  try {
+    await apiCall('deletePacket', [packetId]);
+    showToast('Packet deleted');
+    loadCurrentView();
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
+
+function openEditPacketModal(packetId, content) {
+  document.getElementById('editPacketId').value = packetId;
+  document.getElementById('editPacketContent').value = content || '';
+  document.getElementById('editPacketModal').classList.add('active');
+}
+
+function closeEditPacketModal() {
+  document.getElementById('editPacketModal').classList.remove('active');
+}
+
+async function savePacketEdit() {
+  const packetId = document.getElementById('editPacketId').value;
+  const content = document.getElementById('editPacketContent').value;
+  
+  try {
+    await apiCall('editPacket', [packetId, content]);
+    showToast('Packet updated');
+    closeEditPacketModal();
+    loadCurrentView();
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
+
+function openSetRoleModal(userId, currentRole) {
+  document.getElementById('setRoleUserId').value = userId;
+  document.getElementById('setRoleSelect').value = currentRole;
+  document.getElementById('setRoleModal').classList.add('active');
+}
+
+function closeSetRoleModal() {
+  document.getElementById('setRoleModal').classList.remove('active');
+}
+
+async function saveRoleChange() {
+  const userId = document.getElementById('setRoleUserId').value;
+  const newRole = parseInt(document.getElementById('setRoleSelect').value);
+  
+  try {
+    await apiCall('setRole', [userId, newRole]);
+    showToast('User role updated');
+    closeSetRoleModal();
+    loadCurrentView();
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
+
+async function saveState() {
+  try {
+    await apiCall('saveState');
+    showToast('State saved successfully');
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
+
+async function loadState() {
+  if (!confirm('Are you sure you want to load state from backup? This will overwrite current cache contents.')) {
+    return;
+  }
+  
+  try {
+    await apiCall('loadState');
+    showToast('State loaded successfully');
+    loadCurrentView();
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
+
+function openAddPacketModal() {
+  // For now, just create a simple packet
+  const content = prompt('Enter packet content:');
+  if (content) {
+    apiCall('addPacket', [content]).then(() => {
+      showToast('Packet added');
+      loadCurrentView();
+    }).catch(error => {
+      showToast(`Error: ${error.message}`);
     });
-    const data = await response.json();
-    resultBox.textContent = JSON.stringify(data,null,2);
-  }catch(err){
-    resultBox.textContent = "Error: "+err.message;
+  }
+}
+
+function openCreateUserModal() {
+  const osrs_name = prompt('OSRS name:');
+  if (!osrs_name) return;
+  const disc_name = prompt('Discord name:');
+  const forum_name = prompt('Forum name:');
+  const password = prompt('Password:');
+  
+  if (osrs_name && disc_name && forum_name && password) {
+    apiCall('createUser', [osrs_name, disc_name, forum_name, password]).then(() => {
+      showToast('User created');
+      loadCurrentView();
+    }).catch(error => {
+      showToast(`Error: ${error.message}`);
+    });
+  }
+}
+
+function openSetPrefixesModal() {
+  const newPrefixes = prompt('Enter strings to suppress as JSON array (e.g., ["[Clan Chat]", "XP Drop:"]):', JSON.stringify(state.prefixes));
+  if (newPrefixes) {
+    try {
+      const prefixes = JSON.parse(newPrefixes);
+      apiCall('setSuppressedPrefixes', [prefixes]).then(() => {
+        showToast('Suppression strings updated');
+        loadCurrentView();
+      }).catch(error => {
+        showToast(`Error: ${error.message}`);
+      });
+    } catch (error) {
+      showToast('Invalid JSON');
+    }
+  }
+}
+
+// =====================
+// Event Delegation for Content Panel
+// =====================
+document.getElementById('contentPanel').addEventListener('click', (e) => {
+  const button = e.target.closest('button[data-action]');
+  if (!button) return;
+
+  const card = button.closest('.compact-card');
+  if (!card) return;
+
+  const action = button.dataset.action;
+  const packetId = card.dataset.packetId;
+  const userId = card.dataset.userId;
+  const userName = card.dataset.userName;
+
+  switch (action) {
+    case 'view-packet':
+      viewPacket(packetId);
+      break;
+    case 'edit-packet':
+      const packet = state.packets.find(p => p.id === packetId);
+      openEditPacketModal(packetId, packet?.data?.body || '');
+      break;
+    case 'delete-packet':
+      deletePacket(packetId);
+      break;
+    case 'view-user':
+      viewUser(userId, userName);
+      break;
+    case 'set-role':
+      const user = state.users.find(u => u.id === userId);
+      openSetRoleModal(userId, user?.role || 2);
+      break;
+    case 'copy-id':
+      copyToClipboard(userId, 'Copied user ID');
+      break;
   }
 });
 
-// ---------------- Brazier Flames (unchanged) ----------------
-function initRSBrazier(canvas){
-  const ctx = canvas.getContext('2d'); canvas.width=canvas.offsetWidth; canvas.height=canvas.offsetHeight;
-  const particles=[], smoke=[];
-  function drawBrazier(){ const cx=canvas.width/2,cy=canvas.height-50; ctx.fillStyle="#222"; ctx.fillRect(cx-60,cy+50,120,20); const legW=6,legH=150,spacing=10; ctx.fillStyle="#444"; ctx.fillRect(cx-spacing*1,cy-legH+20,legW,legH); ctx.fillRect(cx-spacing*0,cy-legH+20,legW,legH); ctx.fillRect(cx+spacing*1,cy-legH+20,legW,legH); const potY=cy-legH; ctx.beginPath(); ctx.moveTo(cx-40,potY); ctx.quadraticCurveTo(cx,potY-50,cx+40,potY); ctx.closePath(); ctx.fillStyle="#333"; ctx.fill(); ctx.strokeStyle="#555"; ctx.stroke(); const grad=ctx.createRadialGradient(cx,potY-25,5,cx,potY-25,35); grad.addColorStop(0,'rgba(0,255,0,0.7)'); grad.addColorStop(0.5,'rgba(0,200,0,0.4)'); grad.addColorStop(1,'rgba(0,100,0,0.1)'); ctx.fillStyle=grad; ctx.fill();}
-  function createParticle(){ const cx=canvas.width/2,cy=canvas.height-50-150,x=cx+(Math.random()*30-15),y=cy,size=Math.random()*8+4,speed=Math.random()*1+0.5,colorArr=[`rgba(0,255,0,0.6)`,`rgba(0,200,0,0.4)`,`rgba(0,150,0,0.3)`],color=colorArr[Math.floor(Math.random()*colorArr.length)]; particles.push({x,y,size,speed,color,angle:Math.random()*Math.PI*2});}
-  function createSmoke(){ const cx=canvas.width/2,cy=canvas.height-50-150,x=cx+(Math.random()*20-10),y=cy,size=Math.random()*15+10; smoke.push({x,y,size,alpha:0.1+Math.random()*0.2});}
-  function update(){ ctx.clearRect(0,0,canvas.width,canvas.height); drawBrazier();
-    for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.y-=p.speed; p.x+=Math.sin(p.angle)*0.5; p.size*=0.97; p.angle+=0.05; ctx.beginPath(); ctx.fillStyle=p.color; ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill(); if(p.size<1||p.y<0) particles.splice(i,1);} 
-    if(particles.length<80) createParticle();
-    for(let i=smoke.length-1;i>=0;i--){ const s=smoke[i]; s.y-=0.3; s.alpha*=0.99; ctx.beginPath(); ctx.fillStyle=`rgba(200,200,200,${s.alpha})`; ctx.arc(s.x,s.y,s.size,0,Math.PI*2); ctx.fill(); if(s.alpha<0.01) smoke.splice(i,1);}
-    if(smoke.length<30) createSmoke(); requestAnimationFrame(update);
+// Also handle detail view buttons
+document.getElementById('contentPanel').addEventListener('click', (e) => {
+  const button = e.target.closest('button[data-action]');
+  if (!button) return;
+
+  const action = button.dataset.action;
+
+  switch (action) {
+    case 'back-to-packets':
+      navigateTo('packets');
+      break;
+    case 'edit-packet-detail':
+      openEditPacketModal(button.dataset.packetId, button.dataset.packetContent || '');
+      break;
+    case 'delete-packet-detail':
+      deletePacket(button.dataset.packetId);
+      break;
+    case 'back-to-users':
+      navigateTo('users');
+      break;
+    case 'set-role-detail':
+      const userId = button.dataset.userId;
+      const role = parseInt(button.dataset.role || '2');
+      openSetRoleModal(userId, role);
+      break;
   }
+});
+
+// =====================
+// Initialize
+// =====================
+updateSessionSummary();
+loadCurrentView();
+
+// =====================
+// Brazier Animation
+// =====================
+function initRSBrazier(canvas) {
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+  const particles = [];
+  const smoke = [];
+
+  function drawBrazier() {
+    const cx = canvas.width / 2;
+    const cy = canvas.height - 50;
+    ctx.fillStyle = '#222';
+    ctx.fillRect(cx - 60, cy + 50, 120, 20);
+    const legW = 6;
+    const legH = 150;
+    const spacing = 10;
+    ctx.fillStyle = '#444';
+    ctx.fillRect(cx - spacing * 1, cy - legH + 20, legW, legH);
+    ctx.fillRect(cx - spacing * 0, cy - legH + 20, legW, legH);
+    ctx.fillRect(cx + spacing * 1, cy - legH + 20, legW, legH);
+    const potY = cy - legH;
+    ctx.beginPath();
+    ctx.moveTo(cx - 40, potY);
+    ctx.quadraticCurveTo(cx, potY - 50, cx + 40, potY);
+    ctx.closePath();
+    ctx.fillStyle = '#333';
+    ctx.fill();
+    ctx.strokeStyle = '#555';
+    ctx.stroke();
+    const grad = ctx.createRadialGradient(cx, potY - 25, 5, cx, potY - 25, 35);
+    grad.addColorStop(0, 'rgba(0,255,0,0.7)');
+    grad.addColorStop(0.5, 'rgba(0,200,0,0.4)');
+    grad.addColorStop(1, 'rgba(0,100,0,0.1)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  function createParticle() {
+    const cx = canvas.width / 2;
+    const cy = canvas.height - 50 - 150;
+    const x = cx + (Math.random() * 30 - 15);
+    const y = cy;
+    const size = Math.random() * 8 + 4;
+    const speed = Math.random() * 1 + 0.5;
+    const colorArr = [
+      'rgba(0,255,0,0.6)',
+      'rgba(0,200,0,0.4)',
+      'rgba(0,150,0,0.3)'
+    ];
+    const color = colorArr[Math.floor(Math.random() * colorArr.length)];
+    particles.push({ x, y, size, speed, color, angle: Math.random() * Math.PI * 2 });
+  }
+
+  function createSmoke() {
+    const cx = canvas.width / 2;
+    const cy = canvas.height - 50 - 150;
+    const x = cx + (Math.random() * 20 - 10);
+    const y = cy;
+    const size = Math.random() * 15 + 10;
+    smoke.push({ x, y, size, alpha: 0.1 + Math.random() * 0.2 });
+  }
+
+  function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBrazier();
+
+    for (let i = particles.length - 1; i >= 0; i -= 1) {
+      const p = particles[i];
+      p.y -= p.speed;
+      p.x += Math.sin(p.angle) * 0.5;
+      p.size *= 0.97;
+      p.angle += 0.05;
+      ctx.beginPath();
+      ctx.fillStyle = p.color;
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      if (p.size < 1 || p.y < 0) {
+        particles.splice(i, 1);
+      }
+    }
+    if (particles.length < 80) {
+      createParticle();
+    }
+
+    for (let i = smoke.length - 1; i >= 0; i -= 1) {
+      const s = smoke[i];
+      s.y -= 0.3;
+      s.alpha *= 0.99;
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(200,200,200,${s.alpha})`;
+      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+      ctx.fill();
+      if (s.alpha < 0.01) {
+        smoke.splice(i, 1);
+      }
+    }
+    if (smoke.length < 30) {
+      createSmoke();
+    }
+
+    requestAnimationFrame(update);
+  }
+
   update();
 }
+
 initRSBrazier(document.getElementById('flameLeft'));
 initRSBrazier(document.getElementById('flameRight'));
 </script>
