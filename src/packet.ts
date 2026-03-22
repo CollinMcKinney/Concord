@@ -271,7 +271,7 @@ async function getPackets(limit = 50): Promise<SerializedPacket[]> {
   const packets: SerializedPacket[] = [];
   for (const packetId of limitedIds) {
     const packetData = await cache.get<SerializedPacket>(`packet:${packetId}`);
-    if (packetData) {
+    if (packetData && !packetData.deleted) {
       packets.push(packetData);
     }
   }
@@ -284,11 +284,14 @@ async function getPackets(limit = 50): Promise<SerializedPacket[]> {
  * @param packetId - The unique packet id to mark as deleted.
  */
 async function deletePacket(packetId: string): Promise<boolean> {
-  const packet = await Packet.load(packetId);
-  if (!packet) return false;
+  const packetData = await cache.get<SerializedPacket>(`packet:${packetId}`);
+  if (!packetData) return false;
 
-  packet.markDeleted();
-  await packet.save();
+  // Remove from packet storage
+  await cache.del(`packet:${packetId}`);
+  
+  // Remove from sorted set
+  await cache.zRem("packets", packetId);
 
   packetEvents.emit("packetDeleted", packetId);
   return true;

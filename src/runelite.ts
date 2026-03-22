@@ -190,7 +190,7 @@ async function tryResumeGuestSession(webSocket: ExtendedWebSocket, clientIp: str
     return false;
   }
 
-  const verifiedUserId = await auth.verifySession(userId, sessionToken);
+  const verifiedUserId = await auth.verifySession(sessionToken);
   if (!verifiedUserId) {
     console.warn(`Failed to resume RuneLite guest session for ${clientIp}: invalid session`);
     return false;
@@ -311,7 +311,7 @@ async function verifyRunelitePacketAuth(packet: Packet): Promise<string | null> 
     return null;
   }
 
-  return auth.verifySession(userId, sessionToken);
+  return auth.verifySession(sessionToken);
 }
 
 /**

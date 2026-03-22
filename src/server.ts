@@ -8,15 +8,19 @@ import { initStorage, saveState, loadState, startAutoSaveDynamic } from "./cache
 import { initializeRoot } from "./user";
 import { attachToServer, broadcast } from "./runelite";
 import adminRouter from "./admin";
+import filesRouter from "./filesRouter";
+import { initFiles } from "./files";
 import "./discord"; // auto-start Discord integrations
 import { Packet, type SerializedPacket } from "./packet";
 
 // --- Express setup ---
 const app: Express = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
 // Example admin route to broadcast a message to all RuneLite clients
 app.use("/admin", adminRouter);
+app.use("/files", filesRouter);
 
 // Optional: simple broadcast endpoint for testing
 app.post("/broadcast", (req, res) => {
@@ -44,6 +48,7 @@ async function start(): Promise<void> {
   await initStorage();
   await loadState();
   await initializeRoot();
+  await initFiles(); // Load files from disk into cache
   startAutoSaveDynamic();
   await saveState();
 

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import * as cache from "./cache";
 import * as auth from "./auth";
+import { type ActorData, type SessionData, SESSION_TTL_MS } from "./auth";
 import * as permission from "./permission";
 import { Roles, type RoleType } from "./permission";
 
@@ -88,6 +89,10 @@ class User {
  * Prints the current root credentials to the console for local admin access.
  */
 function printRootCredentials(): void {
+  console.log("[printRootCredentials] Reading from env:", { 
+    hasUserId: !!process.env.ROOT_USER_ID, 
+    hasSessionToken: !!process.env.ROOT_SESSION_TOKEN 
+  });
   console.log("Paste these into the admin page:");
   console.log("ROOT_CREDENTIALS:");
   console.log(`${process.env.ROOT_USER_ID || ""}=${process.env.ROOT_SESSION_TOKEN || ""}`);
@@ -234,15 +239,30 @@ async function removeRootUsers(): Promise<void> {
 /**
  * Authenticates a user and guarantees a valid session token is returned.
  * @param userId - The stored user id being authenticated.
- * @param hashedPass - The hashed credential used during authentication.
+ * @param hashedPass - The already-hashed password (for internal use like ROOT init).
  * @returns A valid session token for the user.
  */
 async function authenticateUserSession(userId: string, hashedPass: string): Promise<string> {
-  const sessionToken = await auth.authenticate(userId, hashedPass);
-  if (!sessionToken) {
-    throw new Error("Failed to create authenticated session");
+  const user = await cache.get<ActorData>(`user:${userId}`);
+  if (!user) {
+    throw new Error("User not found");
   }
 
+  // The hashedPass is already hashed, compare directly
+  if (user.hashedPass !== hashedPass) {
+    throw new Error("Password mismatch");
+  }
+
+  // Create a new session token
+  const sessionToken = crypto.randomBytes(32).toString("hex");
+  const sessionTokenHash = auth.hashSessionToken(sessionToken);
+  const newSession: SessionData = {
+    userId,
+    created: Date.now(),
+    expires: Date.now() + SESSION_TTL_MS
+  };
+
+  await cache.set(`session:${sessionTokenHash}`, newSession);
   return sessionToken;
 }
 
@@ -253,7 +273,7 @@ async function authenticateUserSession(userId: string, hashedPass: string): Prom
  * @returns The verified user id.
  */
 async function verifyAuthenticatedUser(userId: string, sessionToken: string): Promise<string> {
-  const verifiedId = await auth.verifySession(userId, sessionToken);
+  const verifiedId = await auth.verifySession(sessionToken);
   if (!verifiedId) {
     throw new Error("Failed to verify authenticated session");
   }
@@ -271,6 +291,10 @@ function assignRootEnv(root: User, verifiedId: string, sessionToken: string): vo
   process.env.ROOT_USER_ID = verifiedId;
   process.env.ROOT_SESSION_TOKEN = sessionToken;
   process.env.ROOT_HASHED_PASS = root.hashedPass;
+  console.log("[assignRootEnv] Set ROOT credentials:", { 
+    userId: verifiedId, 
+    sessionToken: sessionToken ? `${sessionToken.substring(0, 16)}...` : 'NONE' 
+  });
 }
 
 /**
@@ -282,7 +306,7 @@ function assignRootEnv(root: User, verifiedId: string, sessionToken: string): vo
 async function requireCommandRole(actorId: string, actorSessionToken: string, commandName: string): Promise<void> {
   const minimumRole = await permission.getRequiredRoleForCommand(commandName);
   if (minimumRole != null) {
-    await auth.requireRole(actorId, actorSessionToken, minimumRole);
+    await auth.requireRole(actorSessionToken, minimumRole);
   }
 }
 
@@ -311,7 +335,9 @@ async function deleteUserById(userId: string): Promise<boolean> {
  */
 async function initializeRoot(): Promise<User | null> {
   try {
+    console.log("[initializeRoot] Starting...");
     await removeRootUsers();
+    console.log("[initializeRoot] Removed old ROOT users");
 
     const root = createUserRecord(
       {
@@ -323,14 +349,20 @@ async function initializeRoot(): Promise<User | null> {
       User.hashToken(crypto.randomBytes(32).toString("hex")),
       new Date()
     );
+    console.log("[initializeRoot] Created ROOT user record:", root.id);
 
     const saved = await saveUserRecord(root, true);
+    console.log("[initializeRoot] Saved ROOT user:", saved);
     if (!saved) {
       throw new Error("ROOT user already exists");
     }
 
     const sessionToken = await authenticateUserSession(root.id, root.hashedPass);
+    console.log("[initializeRoot] Got session token:", sessionToken ? `${sessionToken.substring(0, 16)}...` : 'NONE');
+    
     const verifiedId = await verifyAuthenticatedUser(root.id, sessionToken);
+    console.log("[initializeRoot] Verified ID:", verifiedId);
+    
     assignRootEnv(root, verifiedId, sessionToken);
 
     console.log("New ROOT created for this server run.");
@@ -433,14 +465,15 @@ async function updateUserOsrsName(userId: string, osrsName: string): Promise<boo
  * @param password - The raw password or secret that will be hashed for the new member.
  */
 async function createUser(
-  actorId: string,
   actorSessionToken: string,
   osrs_name: string,
   disc_name: string,
   forum_name: string,
   password: string
 ): Promise<User> {
-  await requireCommandRole(actorId, actorSessionToken, "createUser");
+  const actor = await auth.getVerifiedActor(actorSessionToken);
+
+  // Pass plain password - createUserInternal will hash it
   return createUserInternal(osrs_name, disc_name, forum_name, Roles.MEMBER, password);
 }
 
@@ -449,9 +482,10 @@ async function createUser(
  * @param actorId - The user id of the actor requesting the user list.
  * @param actorSessionToken - The session token used to authorize the actor.
  */
-async function listUsers(actorId: string, actorSessionToken: string): Promise<User[]> {
-  await requireCommandRole(actorId, actorSessionToken, "listUsers");
-
+async function listUsers(actorSessionToken: string): Promise<User[]> {
+  const actor = await auth.getVerifiedActor(actorSessionToken);
+  const isRoot = actor.role === Roles.ROOT;
+  
   const ids = await cache.sMembers("users");
   const userList: User[] = [];
   let rootAlreadyIncluded = false;
@@ -468,6 +502,11 @@ async function listUsers(actorId: string, actorSessionToken: string): Promise<Us
       rootAlreadyIncluded = true;
     }
 
+    // Strip sensitive data for non-ROOT users
+    if (!isRoot) {
+      delete (data as any).hashedPass;
+    }
+
     userList.push(new User(data));
   }
   return userList;
@@ -480,13 +519,21 @@ async function listUsers(actorId: string, actorSessionToken: string): Promise<Us
  * @param targetId - The stored user id of the user record being loaded.
  */
 async function getUser(
-  actorId: string,
   actorSessionToken: string,
   targetId: string
 ): Promise<User | null> {
-  await requireCommandRole(actorId, actorSessionToken, "getUser");
+  const actor = await auth.getVerifiedActor(actorSessionToken);
   const data = await loadStoredUser(targetId);
-  return data ? new User(data) : null;
+  if (!data) return null;
+  
+  const isRoot = actor.role === Roles.ROOT;
+  
+  // Strip sensitive data for non-ROOT users
+  if (!isRoot) {
+    delete (data as any).hashedPass;
+  }
+  
+  return new User(data);
 }
 
 /**
@@ -497,15 +544,11 @@ async function getUser(
  * @param newRole - The requested role value, supplied as either a numeric role or role name.
  */
 async function setRole(
-  actorId: string,
   actorSessionToken: string,
   targetId: string,
   newRole: string | number
 ): Promise<boolean> {
-  const minimumRole = await permission.getRequiredRoleForCommand("setRole");
-  const actor = minimumRole == null
-    ? await auth.getVerifiedActor(actorId, actorSessionToken)
-    : await auth.requireRole(actorId, actorSessionToken, minimumRole);
+  const actor = await auth.getVerifiedActor(actorSessionToken);
   const target = await loadStoredUser(targetId);
   const parsedRole = parseRole(newRole);
   if (!target) return false;
@@ -513,8 +556,38 @@ async function setRole(
     throw new Error("Invalid role");
   }
 
-  if (actor.role <= target.role) return false;
-  if (actor.role <= parsedRole) return false;
+  console.log("[setRole] Permission check:", {
+    actorRole: actor.role,
+    actorName: actor.osrs_name,
+    targetRole: target.role,
+    targetName: target.osrs_name,
+    newRole: parsedRole
+  });
+
+  // Only Moderator+ can change roles
+  if (actor.role < Roles.MODERATOR) {
+    throw new Error("Only Moderator+ can change user roles");
+  }
+
+  // Cannot change ROOT
+  if (target.role === Roles.ROOT) {
+    throw new Error("Cannot change ROOT user's role");
+  }
+
+  // Cannot change own role to escalate privileges
+  if (actor.id === targetId) {
+    throw new Error("Cannot change your own role");
+  }
+
+  // Cannot promote someone above your own rank
+  if (parsedRole > actor.role) {
+    throw new Error("Cannot promote user above your own rank");
+  }
+
+  // Cannot promote someone to a rank higher than yours
+  if (target.role < parsedRole && parsedRole > actor.role) {
+    throw new Error("Cannot promote user above your own rank");
+  }
 
   target.role = parsedRole;
   await saveStoredUser(target);
@@ -539,6 +612,49 @@ function parseRole(role: string | number): RoleType | null {
   return null;
 }
 
+/**
+ * Deletes a user account (ROOT only).
+ * @param actorId - The user id of the actor requesting the deletion.
+ * @param actorSessionToken - The session token used to authorize the actor.
+ * @param targetId - The stored user id to delete.
+ * @returns True if the user was deleted.
+ */
+async function deleteUser(
+  actorSessionToken: string,
+  targetId: string
+): Promise<boolean> {
+  const actor = await auth.getVerifiedActor(actorSessionToken);
+
+  // Only ROOT can delete users
+  if (actor.role !== Roles.ROOT) {
+    throw new Error("Only ROOT can delete users");
+  }
+
+  // Cannot delete ROOT
+  const target = await loadStoredUser(targetId);
+  if (!target) return false;
+  if (target.role === Roles.ROOT) {
+    throw new Error("Cannot delete ROOT user");
+  }
+
+  // Delete reverse indexes
+  if (target.osrs_name) {
+    await cache.del(`user:byOsrs:${target.osrs_name.toLowerCase()}`);
+  }
+  if (target.disc_name) {
+    await cache.del(`user:byDisc:${target.disc_name.toLowerCase()}`);
+  }
+  if (target.forum_name) {
+    await cache.del(`user:byForum:${target.forum_name.toLowerCase()}`);
+  }
+
+  // Delete user record
+  await cache.del(`user:${targetId}`);
+  await cache.sRem("users", targetId);
+
+  return true;
+}
+
 export {
   User,
   initializeRoot,
@@ -550,5 +666,6 @@ export {
   listUsers,
   getUser,
   setRole,
+  deleteUser,
   type UserData
 };

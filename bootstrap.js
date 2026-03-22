@@ -11,16 +11,16 @@ try {
         // Check if .env already exists
         if (fs.existsSync(envPath))
             console.log(".env file found");
-
-        // Check if .env.example exists
-        if (!fs.existsSync(examplePath)) {
-            console.error("No .env.example found. Cannot create .env");
-            process.exit(1);
+        else {
+            // Check if .env.example exists
+            if (!fs.existsSync(examplePath)) {
+                console.error("No .env.example found. Cannot create .env");
+                process.exit(1);
+            }
+            // Copy .env.example → .env
+            fs.copyFileSync(examplePath, envPath);
+            console.log("Created .env from .env.example");
         }
-
-        // Copy .env.example → .env
-        fs.copyFileSync(examplePath, envPath);
-        console.log("Created .env from .env.example");
     } catch (err) {
         console.error("Error handling .env file:", err);
         process.exit(1);
@@ -38,13 +38,9 @@ try {
     console.log('Committing Concord container to local image "concord:latest"...');
     execSync('podman commit concord concord:latest', { stdio: 'inherit' });
 
-    // Stream logs in the background so the terminal remains usable
-    console.log('Streaming logs in the background... (terminal is now free for commands)');
-    const logProcess = spawn('podman', ['compose', '--file', 'podman-compose.yaml', 'logs', '-f'], {
-        stdio: 'inherit',
-        detached: true
-    });
-    logProcess.unref(); // Allow the parent process to exit independently
+    // Stream logs for live updates
+    console.log('Streaming logs...');
+    execSync('podman compose --file podman-compose.yaml logs -f', { stdio: 'inherit' });
 
 } catch (err) {
     console.error('Error during full rebuild:', err);

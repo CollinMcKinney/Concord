@@ -49,6 +49,13 @@ const BACKUP_DIR = path.join(__dirname, "../data");
 const BACKUP_FILE = path.join(BACKUP_DIR, "backup.json");
 const BACKUP_FILE_EXAMPLE = path.join(BACKUP_DIR, "backup.json.example");
 
+// Track if cache has changed since last save
+let cacheDirty = false;
+
+function markCacheDirty(): void {
+  cacheDirty = true;
+}
+
 // Auto-save configuration
 const MIN_INTERVAL_MS = 5000; // 5 seconds minimum
 const MAX_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes maximum
@@ -96,6 +103,7 @@ async function get<T>(key: string): Promise<T | null> {
  * @param options - Optional Redis `SET` flags such as `NX` used to control write behavior.
  */
 async function set<T>(key: string, value: T, options?: RedisSetOptions): Promise<RedisSetResult> {
+  markCacheDirty();
   return client.set(key, JSON.stringify(value), options);
 }
 
@@ -113,6 +121,7 @@ async function exists(key: string): Promise<number> {
  * @param value - The member value to add to the set.
  */
 async function sAdd(key: string, value: string): Promise<number> {
+  markCacheDirty();
   return client.sAdd(key, value);
 }
 
@@ -130,6 +139,7 @@ async function sMembers(key: string): Promise<string[]> {
  * @param value - The member value to remove from the set.
  */
 async function sRem(key: string, value: string): Promise<number> {
+  markCacheDirty();
   return client.sRem(key, value);
 }
 
@@ -148,6 +158,7 @@ interface ZAddOptions {
  * @returns The number of new sorted-set members added.
  */
 async function zAdd(key: string, scoreValue: ZAddOptions | ZAddOptions[]): Promise<number> {
+  markCacheDirty();
   if (Array.isArray(scoreValue)) return client.zAdd(key, scoreValue);
   return client.zAdd(key, scoreValue);
 }
@@ -163,10 +174,21 @@ async function zRange(key: string, start: number, end: number): Promise<string[]
 }
 
 /**
+ * Removes a member from a Redis sorted set.
+ * @param key - The sorted set key to remove from.
+ * @param value - The member value to remove from the sorted set.
+ */
+async function zRem(key: string, value: string): Promise<number> {
+  markCacheDirty();
+  return client.zRem(key, value);
+}
+
+/**
  * Deletes a Redis key.
  * @param key - The Redis key to delete entirely.
  */
 async function del(key: string): Promise<number> {
+  markCacheDirty();
   return client.del(key);
 }
 
@@ -214,6 +236,7 @@ async function saveState(): Promise<{ success: boolean; path?: string; error?: s
     }
 
     fs.writeFileSync(BACKUP_FILE, JSON.stringify(backupData, null, 2));
+    cacheDirty = false; // Reset dirty flag after successful save
     return { success: true, path: BACKUP_FILE };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
@@ -304,11 +327,13 @@ function getDynamicInterval(): number {
  */
 async function startAutoSaveDynamic(): Promise<void> {
   let interval = getDynamicInterval();
-  console.log(`Auto-save enabled. Initial interval: ${Math.round(interval / 1000)}s.`);
+  console.log(`Auto-save enabled. Initial interval: ${Math.round(interval / 1000)}s. Only saves when cache changes.`);
 
   const saveAndSchedule = async (): Promise<void> => {
     try {
-      await saveState();
+      if (cacheDirty) {
+        await saveState();
+      }
     } catch (err) {
       console.error("Auto-save failed:", err);
     }
@@ -331,6 +356,7 @@ export {
   sRem,
   zAdd,
   zRange,
+  zRem,
   del,
   saveState,
   loadState,

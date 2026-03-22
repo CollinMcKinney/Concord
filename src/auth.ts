@@ -53,14 +53,51 @@ async function register(
 }
 
 /**
- * Validates credentials and returns a reusable session token on success.
- * @param userId - The persisted user id whose credentials should be checked.
- * @param hashedPass - The stored password hash or an existing session token being reused as a shortcut.
+ * Finds a user by any identifier (userId, osrs_name, disc_name, or forum_name).
+ * @param identifier - Any user identifier (name or ID).
+ * @returns The user data or null if not found.
  */
-async function authenticate(userId: string, hashedPass: string): Promise<string | null> {
-  console.log("Authenticating user:", { userId });
+async function findUserByIdentifier(identifier: string): Promise<ActorData | null> {
+  // First try as userId
+  let user = await cache.get<ActorData>(`user:${identifier}`);
+  if (user) return user;
 
-  const user = await cache.get<ActorData>(`user:${userId}`);
+  // Try as osrs_name
+  const osrsKey = `user:osrs:${identifier}`;
+  const osrsUserId = await cache.get<string>(osrsKey);
+  if (osrsUserId) {
+    user = await cache.get<ActorData>(`user:${osrsUserId}`);
+    if (user) return user;
+  }
+
+  // Try as disc_name
+  const discKey = `user:discord:${identifier}`;
+  const discUserId = await cache.get<string>(discKey);
+  if (discUserId) {
+    user = await cache.get<ActorData>(`user:${discUserId}`);
+    if (user) return user;
+  }
+
+  // Try as forum_name
+  const forumKey = `user:forum:${identifier}`;
+  const forumUserId = await cache.get<string>(forumKey);
+  if (forumUserId) {
+    user = await cache.get<ActorData>(`user:${forumUserId}`);
+    if (user) return user;
+  }
+
+  return null;
+}
+
+/**
+ * Validates credentials and returns a reusable session token on success.
+ * @param identifier - User ID, OSRS name, Discord name, or forum name.
+ * @param password - The plain text password (will be hashed for comparison).
+ */
+async function authenticate(identifier: string, password: string): Promise<string | null> {
+  console.log("Authenticating user:", { identifier });
+
+  const user = await findUserByIdentifier(identifier);
 
   // Don't authenticate blocked users
   if (!user || user.role === Roles.BLOCKED) {
@@ -68,18 +105,21 @@ async function authenticate(userId: string, hashedPass: string): Promise<string 
     return null;
   }
 
+  const userId = user.id;
+
   // Allow authentication via session token if the session exists and is valid
-  const existingSession = await cache.get<SessionData>(`session:${hashSessionToken(hashedPass)}`);
+  const existingSession = await cache.get<SessionData>(`session:${hashSessionToken(password)}`);
   if (existingSession && existingSession.userId === userId && existingSession.expires > Date.now()) {
     console.log("Authenticated via existing session token for user:", { userId });
-    return hashedPass;
+    return password;
   }
 
+  // Hash the provided password and compare
+  const hashedPassword = hashSessionToken(password);
+  
   // Verify password hash
-  if (user.hashedPass !== hashedPass) {
+  if (user.hashedPass !== hashedPassword) {
     console.log("Authentication failed for user:", { userId });
-    console.log("hashedPass provided:", hashedPass);
-    console.log("hashedPass expected:", user.hashedPass);
     return null;
   }
 
@@ -99,33 +139,31 @@ async function authenticate(userId: string, hashedPass: string): Promise<string 
 }
 
 /**
- * Verifies that a session token belongs to the specified actor and is still active.
- * @param actorId - The user id expected to own the session.
+ * Verifies that a session token is valid and returns the associated user ID.
  * @param sessionToken - The raw session token presented by the caller.
  */
-async function verifySession(actorId: string, sessionToken: string): Promise<string | null> {
+async function verifySession(sessionToken: string): Promise<string | null> {
   const session = await cache.get<SessionData>(`session:${hashSessionToken(sessionToken)}`);
   if (!session) return null;
 
-  if (session.userId !== actorId || session.expires < Date.now()) {
-    console.warn(`Failed session verification for user ${actorId}`);
+  if (session.expires < Date.now()) {
+    console.warn(`Failed session verification: token expired`);
     return null;
   }
-  return actorId;
+  return session.userId;
 }
 
 /**
  * Loads the authenticated actor record for a valid session.
- * @param actorId - The user id whose full stored actor record should be loaded.
- * @param sessionToken - The raw session token that must already belong to the same actor.
+ * @param sessionToken - The raw session token that identifies the actor.
  */
-async function getVerifiedActor(actorId: string, sessionToken: string): Promise<ActorData> {
-  const verifiedId = await verifySession(actorId, sessionToken);
+async function getVerifiedActor(sessionToken: string): Promise<ActorData> {
+  const verifiedId = await verifySession(sessionToken);
   if (!verifiedId) {
     throw new Error("Actor not authenticated");
   }
 
-  const actor = await cache.get<ActorData>(`user:${actorId}`);
+  const actor = await cache.get<ActorData>(`user:${verifiedId}`);
   if (!actor) {
     throw new Error("Actor not found");
   }
@@ -135,12 +173,11 @@ async function getVerifiedActor(actorId: string, sessionToken: string): Promise<
 
 /**
  * Ensures the authenticated actor meets a minimum role requirement.
- * @param actorId - The user id attempting to access a protected action.
  * @param sessionToken - The raw session token used to authenticate the actor.
  * @param minimumRole - The lowest role value the actor must have to pass the check.
  */
-async function requireRole(actorId: string, sessionToken: string, minimumRole: RoleType): Promise<ActorData> {
-  const actor = await getVerifiedActor(actorId, sessionToken);
+async function requireRole(sessionToken: string, minimumRole: RoleType): Promise<ActorData> {
+  const actor = await getVerifiedActor(sessionToken);
   if (actor.role < minimumRole) {
     throw new Error("Insufficient role");
   }
@@ -154,5 +191,8 @@ export {
   verifySession,
   getVerifiedActor,
   requireRole,
-  type ActorData
+  hashSessionToken,
+  SESSION_TTL_MS,
+  type ActorData,
+  type SessionData
 };

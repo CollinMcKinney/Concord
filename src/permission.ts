@@ -68,10 +68,18 @@ const DEFAULT_COMMAND_ROLE_REQUIREMENTS: Record<string, RoleType | null> = Objec
   listUsers: Roles.MODERATOR,
   getUser: Roles.MODERATOR,
   setRole: Roles.ADMIN,
-  getSuppressedPrefixes: Roles.MODERATOR,
+  getSuppressedPrefixes: null,
   setSuppressedPrefixes: Roles.ADMIN,
-  getCommandRoleRequirements: Roles.MODERATOR,
+  getCommandRoleRequirements: null,
   setCommandRoleRequirement: Roles.ROOT,
+  listFiles: Roles.MODERATOR,
+  uploadFile: Roles.ADMIN,
+  deleteFile: Roles.ADMIN,
+  getCategories: null,
+  createCategory: Roles.ADMIN,
+  deleteCategory: Roles.ROOT,
+  getEnvVars: Roles.MODERATOR,
+  setEnvVariable: Roles.ROOT,
 });
 
 /**

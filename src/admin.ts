@@ -3,6 +3,8 @@ import * as auth from "./auth";
 import * as cache from "./cache";
 import * as packets from "./packet";
 import * as user from "./user";
+import * as files from "./files";
+import * as env from "./env";
 import bodyParser from "body-parser";
 import fs from "fs";
 import path from "path";
@@ -13,6 +15,7 @@ import type { ActorInfo, PacketData, PacketObject, SerializedPacket } from "./pa
 import type { ActorData } from "./auth";
 import type { CommandRoleRequirementDetails } from "./permission";
 import type { UserData } from "./user";
+import type { FileCategory, FileMeta } from "./files";
 
 
 const ENV_FILE = path.join(__dirname, "..", ".env");
@@ -44,45 +47,40 @@ router.use(bodyParser.json());
 
 /**
  * Ensures the caller meets the provided role requirement.
- * @param actorId - The authenticated actor id, or null when the command allows anonymous access.
  * @param actorSessionToken - The session token presented for the actor.
  * @param minimumRole - The minimum role required to proceed, or null when only authentication is needed.
  */
 async function requireRole(
-  actorId: string | null,
   actorSessionToken: string,
   minimumRole: RoleType | null
 ): Promise<AdminActor> {
   if (minimumRole == null) {
-    return actorId ? auth.getVerifiedActor(actorId, actorSessionToken) : null;
+    return actorSessionToken ? auth.getVerifiedActor(actorSessionToken) : null;
   }
 
-  return auth.requireRole(actorId || "", actorSessionToken, minimumRole);
+  return auth.requireRole(actorSessionToken, minimumRole);
 }
 
 /**
  * Resolves and enforces the configured role requirement for an admin command.
  * @param commandName - The admin command identifier whose access rule should be enforced.
- * @param actorId - The authenticated actor id, or null when the command allows anonymous access.
  * @param actorSessionToken - The session token presented for the actor.
  */
 async function requireCommandRole(
   commandName: string,
-  actorId: string | null,
   actorSessionToken: string
 ): Promise<AdminActor> {
   const minimumRole = await permission.getRequiredRoleForCommand(commandName);
-  return requireRole(actorId, actorSessionToken, minimumRole);
+  return requireRole(actorSessionToken, minimumRole);
 }
 
 /**
  * Creates a normalized admin auth context object.
- * @param actorId - The authenticated actor id, or null for anonymous/open command calls.
  * @param actorSessionToken - The session token presented by the actor.
  * @returns A reusable auth context object for downstream admin helpers.
  */
-function createAdminContext(actorId: string | null, actorSessionToken: string): AdminContext {
-  return { actorId, actorSessionToken };
+function createAdminContext(actorSessionToken: string): AdminContext {
+  return { actorId: null, actorSessionToken };
 }
 
 /**
@@ -92,7 +90,7 @@ function createAdminContext(actorId: string | null, actorSessionToken: string): 
  * @returns The verified actor when one exists, or null for anonymous open commands.
  */
 async function requireAdminCommand(commandName: string, context: AdminContext): Promise<AdminActor> {
-  return requireCommandRole(commandName, context.actorId, context.actorSessionToken);
+  return requireCommandRole(commandName, context.actorSessionToken);
 }
 
 /**
@@ -237,7 +235,6 @@ function broadcastEnvVarUpdate(key: string, value: string): void {
  * @param meta - Extra metadata to store alongside the packet without putting it in the message body.
  */
 async function addPacket(
-  actorId: string | null,
   actorSessionToken: string,
   body: string,
   actorDetails: Partial<ActorInfo> = {},
@@ -245,7 +242,7 @@ async function addPacket(
   data: PacketData = {},
   meta: PacketObject = {}
 ): Promise<boolean> {
-  const context = createAdminContext(actorId, actorSessionToken);
+  const context = createAdminContext(actorSessionToken);
   await requireAdminCommand("addPacket", context);
   const packet = await buildAdminPacket(context, body, actorDetails, origin, data, meta);
 
@@ -259,57 +256,51 @@ async function addPacket(
 
 /**
  * Returns recent packets for an authorized admin actor.
- * @param actorId - The actor id requesting packet history.
  * @param actorSessionToken - The session token used to authorize the caller.
  * @param limit - The maximum number of recent packets to return.
  */
-async function getPackets(actorId: string | null, actorSessionToken: string, limit = 50): Promise<SerializedPacket[]> {
-  await requireAdminCommand("getPackets", createAdminContext(actorId, actorSessionToken));
+async function getPackets(actorSessionToken: string, limit = 50): Promise<SerializedPacket[]> {
+  await requireAdminCommand("getPackets", createAdminContext(actorSessionToken));
   return packets.getPackets(limit);
 }
 
 /**
  * Marks a packet as deleted through the admin API.
- * @param actorId - The actor id requesting the delete operation.
  * @param actorSessionToken - The session token used to authorize the caller.
  * @param packetId - The unique packet id that should be marked deleted.
  */
-async function deletePacket(actorId: string | null, actorSessionToken: string, packetId: string): Promise<boolean> {
-  await requireAdminCommand("deletePacket", createAdminContext(actorId, actorSessionToken));
+async function deletePacket(actorSessionToken: string, packetId: string): Promise<boolean> {
+  await requireAdminCommand("deletePacket", createAdminContext(actorSessionToken));
   return packets.deletePacket(packetId);
 }
 
 /**
  * Updates an existing packet's content through the admin API.
- * @param actorId - The actor id requesting the edit operation.
  * @param actorSessionToken - The session token used to authorize the caller.
  * @param packetId - The unique packet id to edit.
  * @param newContent - The replacement message content to persist on the packet.
  */
 async function editPacket(
-  actorId: string | null,
   actorSessionToken: string,
   packetId: string,
   newContent: string
 ): Promise<boolean> {
-  await requireAdminCommand("editPacket", createAdminContext(actorId, actorSessionToken));
+  await requireAdminCommand("editPacket", createAdminContext(actorSessionToken));
   return packets.editPacket(packetId, newContent);
 }
 
 /**
  * Updates an environment variable in-memory and in the local `.env` file.
- * @param actorId - The actor id requesting the configuration change.
  * @param actorSessionToken - The session token used to authorize the caller.
  * @param key - The environment variable name to update.
  * @param value - The new value to assign before persisting it to `.env`.
  */
 async function setEnvVar(
-  actorId: string | null,
   actorSessionToken: string,
   key: string,
   value: unknown
 ): Promise<EnvVarUpdateResult> {
-  await requireAdminCommand("setEnvVar", createAdminContext(actorId, actorSessionToken));
+  await requireAdminCommand("setEnvVar", createAdminContext(actorSessionToken));
   const normalizedKey = normalizeEnvKey(key);
   const normalizedValue = normalizeEnvValue(value);
 
@@ -326,26 +317,23 @@ async function setEnvVar(
 
 /**
  * Returns the configured RuneLite message suppression prefixes.
- * @param actorId - The actor id requesting the current suppression rules.
  * @param actorSessionToken - The session token used to authorize the caller.
  */
-async function getSuppressedPrefixes(actorId: string | null, actorSessionToken: string): Promise<string[]> {
-  await requireAdminCommand("getSuppressedPrefixes", createAdminContext(actorId, actorSessionToken));
+async function getSuppressedPrefixes(actorSessionToken: string): Promise<string[]> {
+  await requireAdminCommand("getSuppressedPrefixes", createAdminContext(actorSessionToken));
   return permission.getSuppressedPrefixes();
 }
 
 /**
  * Replaces the configured RuneLite message suppression prefixes.
- * @param actorId - The actor id requesting the suppression rule change.
  * @param actorSessionToken - The session token used to authorize the caller.
  * @param prefixes - The replacement list of suppression prefixes to normalize and save.
  */
 async function setSuppressedPrefixes(
-  actorId: string | null,
   actorSessionToken: string,
   prefixes: string[]
 ): Promise<string[]> {
-  await requireAdminCommand("setSuppressedPrefixes", createAdminContext(actorId, actorSessionToken));
+  await requireAdminCommand("setSuppressedPrefixes", createAdminContext(actorSessionToken));
   const updatedPrefixes = await permission.setSuppressedPrefixes(prefixes);
   broadcastSuppressedPrefixesUpdate(updatedPrefixes);
   return updatedPrefixes;
@@ -353,32 +341,152 @@ async function setSuppressedPrefixes(
 
 /**
  * Returns the effective role requirement for each admin command.
- * @param actorId - The actor id requesting the command-permission map.
  * @param actorSessionToken - The session token used to authorize the caller.
  */
-async function getCommandRoleRequirements(
-  actorId: string | null,
-  actorSessionToken: string
-): Promise<Record<string, CommandRoleRequirementDetails>> {
-  await requireAdminCommand("getCommandRoleRequirements", createAdminContext(actorId, actorSessionToken));
+async function getCommandRoleRequirements(actorSessionToken: string): Promise<Record<string, CommandRoleRequirementDetails>> {
+  await requireAdminCommand("getCommandRoleRequirements", createAdminContext(actorSessionToken));
   return permission.getCommandRoleRequirements();
 }
 
 /**
  * Overrides the configured role requirement for a specific admin command.
- * @param actorId - The actor id requesting the command-permission override.
  * @param actorSessionToken - The session token used to authorize the caller.
  * @param commandName - The admin command whose required role should be updated.
  * @param role - The new minimum role to require, expressed as a role name, number, or null/open marker.
  */
 async function setCommandRoleRequirement(
-  actorId: string | null,
   actorSessionToken: string,
   commandName: string,
   role: string | number | null
 ): Promise<{ commandName: string; roleValue: RoleType | null; roleName: string }> {
-  await requireAdminCommand("setCommandRoleRequirement", createAdminContext(actorId, actorSessionToken));
+  await requireAdminCommand("setCommandRoleRequirement", createAdminContext(actorSessionToken));
   return permission.setCommandRoleRequirement(commandName, role);
+}
+
+/**
+ * Lists all files across all categories.
+ * @param actorId - The actor id requesting the file list.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ */
+async function listFilesAdmin(actorSessionToken: string): Promise<Record<FileCategory, FileMeta[]>> {
+  await requireAdminCommand("listFiles", createAdminContext(actorSessionToken));
+  return files.listAllFiles();
+}
+
+/**
+ * Lists all files in a specific category.
+ * @param actorId - The actor id requesting the file list.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ * @param category - The file category to list.
+ */
+async function listFilesByCategory(
+  actorSessionToken: string,
+  category: FileCategory
+): Promise<FileMeta[]> {
+  await requireAdminCommand("listFiles", createAdminContext(actorSessionToken));
+  const fileList = await files.listFiles(category);
+  const metadata: FileMeta[] = [];
+  
+  for (const name of fileList) {
+    const meta = await files.getFileMeta(category, name);
+    if (meta) {
+      metadata.push(meta);
+    }
+  }
+  
+  return metadata;
+}
+
+/**
+ * Uploads a file to disk from base64-encoded data.
+ * @param actorId - The actor id requesting the upload.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ * @param category - The file category.
+ * @param name - The file name.
+ * @param base64Data - The base64-encoded file data.
+ */
+async function uploadFile(
+  actorSessionToken: string,
+  category: FileCategory,
+  name: string,
+  base64Data: string
+): Promise<FileMeta> {
+  await requireAdminCommand("uploadFile", createAdminContext(actorSessionToken));
+
+  // Validate category name format
+  if (!/^[a-z0-9_-]+$/.test(category)) {
+    throw new Error("Invalid category name. Use only lowercase letters, numbers, dashes, and underscores.");
+  }
+
+  // Validate and decode base64 data
+  const buffer = Buffer.from(base64Data, "base64");
+  if (buffer.length === 0) {
+    throw new Error("Invalid or empty file data");
+  }
+
+  return await files.uploadFile(category, name, buffer);
+}
+
+/**
+ * Deletes a file from disk and cache.
+ * @param actorId - The actor id requesting the deletion.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ * @param category - The file category.
+ * @param name - The file name.
+ */
+async function deleteFile(
+  actorSessionToken: string,
+  category: FileCategory,
+  name: string
+): Promise<boolean> {
+  await requireAdminCommand("deleteFile", createAdminContext(actorSessionToken));
+  
+  // Validate category
+  const validCategories: FileCategory[] = await files.getCategories();
+  if (!validCategories.includes(category)) {
+    throw new Error(`Invalid category. Must be one of: ${validCategories.join(", ")}`);
+  }
+  
+  return await files.deleteFile(category, name);
+}
+
+/**
+ * Lists all file categories.
+ * @param actorId - The actor id requesting the category list.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ */
+async function getCategories(
+  actorSessionToken: string
+): Promise<FileCategory[]> {
+  await requireAdminCommand("getCategories", createAdminContext(actorSessionToken));
+  return files.getCategories();
+}
+
+/**
+ * Creates a new file category.
+ * @param actorId - The actor id requesting the category creation.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ * @param name - The category name to create.
+ */
+async function createCategory(
+  actorSessionToken: string,
+  name: string
+): Promise<FileCategory> {
+  await requireAdminCommand("createCategory", createAdminContext(actorSessionToken));
+  return files.createCategory(name);
+}
+
+/**
+ * Deletes a file category.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ * @param name - The category name to delete.
+ */
+async function deleteCategory(
+  actorSessionToken: string,
+  name: string
+): Promise<boolean> {
+  await requireAdminCommand("deleteCategory", createAdminContext(actorSessionToken));
+  return files.deleteCategory(name);
 }
 
 /**
@@ -394,36 +502,59 @@ export const verifySession = auth.verifySession;
  * @param actorId - The actor id requesting the backup.
  * @param actorSessionToken - The session token used to authorize the caller.
  */
-export const saveState = async (actorId: string | null, actorSessionToken: string) => {
-  await requireAdminCommand("saveState", createAdminContext(actorId, actorSessionToken));
+export const saveState = async (actorSessionToken: string) => {
+  await requireAdminCommand("saveState", createAdminContext(actorSessionToken));
   return cache.saveState();
 };
-/**
- * Restores datastore contents from the on-disk backup.
- * @param actorId - The actor id requesting the restore.
- * @param actorSessionToken - The session token used to authorize the caller.
- */
-export const loadState = async (actorId: string | null, actorSessionToken: string) => {
-  await requireAdminCommand("loadState", createAdminContext(actorId, actorSessionToken));
+
+export const loadState = async (actorSessionToken: string) => {
+  await requireAdminCommand("loadState", createAdminContext(actorSessionToken));
   return cache.loadState();
 };
+
 export { addPacket, getPackets, deletePacket, editPacket, setEnvVar, getSuppressedPrefixes, setSuppressedPrefixes, getCommandRoleRequirements, setCommandRoleRequirement };
-/**
- * Creates a member account through the admin API.
- */
-export const createUser = user.createUser;
-/**
- * Lists all stored users through the admin API.
- */
+export { listFilesAdmin as listFiles, uploadFile, deleteFile, getCategories, createCategory, deleteCategory };
+export const createUser = async (
+  actorSessionToken: string,
+  osrs_name: string,
+  disc_name: string,
+  forum_name: string,
+  password: string
+) => {
+  await requireAdminCommand("createUser", createAdminContext(actorSessionToken));
+  return user.createUser(actorSessionToken, osrs_name, disc_name, forum_name, password);
+};
 export const listUsers = user.listUsers;
-/**
- * Loads a single user through the admin API.
- */
 export const getUser = user.getUser;
-/**
- * Updates a user's role through the admin API.
- */
 export const setRole = user.setRole;
+export const deleteUser = user.deleteUser;
+export const getCategoriesExport = getCategories;
+export const createCategoryExport = createCategory;
+export const deleteCategoryExport = deleteCategory;
+
+/**
+ * Gets all environment variables.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ */
+async function getEnvVars(actorSessionToken: string): Promise<Record<string, string>> {
+  await requireAdminCommand("getEnvVars", createAdminContext(actorSessionToken));
+  return env.readEnvFile();
+}
+
+/**
+ * Sets an environment variable.
+ * @param actorSessionToken - The session token used to authorize the caller.
+ * @param key - The variable name.
+ * @param value - The value to set.
+ */
+async function setEnvVariable(
+  actorSessionToken: string,
+  key: string,
+  value: string
+): Promise<void> {
+  await requireAdminCommand("setEnvVar", createAdminContext(actorSessionToken));
+  env.setEnvVar(key, value);
+}
 
 const adminModule = {
   authenticate,
@@ -443,6 +574,15 @@ const adminModule = {
   listUsers,
   getUser,
   setRole,
+  deleteUser,
+  listFiles: listFilesAdmin,
+  uploadFile,
+  deleteFile,
+  getCategories,
+  createCategory,
+  deleteCategory,
+  getEnvVars,
+  setEnvVariable,
 };
 
 type AdminApiFunctionName = keyof typeof adminModule;
@@ -474,18 +614,22 @@ router.get("/", (req: Request, res: Response) => {
 
 router.post("/call", async (req: Request, res: Response) => {
   const { functionName, args } = req.body as AdminCallRequest;
+  console.log(`[admin/call] Received request:`, { functionName, argsCount: Array.isArray(args) ? args.length : 0 });
+  
   if (!isAdminApiFunctionName(functionName)) {
+    console.error(`[admin/call] Function not allowed:`, functionName);
     return res.status(400).json({ error: "Function not allowed" });
   }
 
   const parsedArgs = Array.isArray(args) ? args : [];
-
+  console.log(`[admin/call] ${new Date().toISOString()} function=${functionName} args=${JSON.stringify(parsedArgs)}`);
+  
   try {
-    console.log(`[admin/call] ${new Date().toISOString()} function=${functionName}`);
     const result = await invokeAdminCommand(functionName, parsedArgs);
     return res.json({ result });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown admin error";
+    console.error(`[admin/call] Error:`, message);
     return res.status(500).json({ error: message });
   }
 });
