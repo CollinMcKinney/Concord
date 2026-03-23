@@ -1,7 +1,7 @@
 import WebSocket, { Server as WebSocketServer } from "ws";
 import http from "http";
 import { Packet, persistPacket } from "./packet";
-import { createGuestSession, updateUserOsrsName } from "./user";
+import { createGuestSession, updateUserOsrsName, getRootCredentials } from "./user";
 import * as permission from "./permission";
 import * as auth from "./auth";
 import type { PacketValue, SerializedPacket } from "./packet";
@@ -230,11 +230,12 @@ async function tryResumeGuestSession(webSocket: ExtendedWebSocket, clientIp: str
  */
 async function sendGuestIssuedPacket(webSocket: ExtendedWebSocket, userId: string, sessionToken: string): Promise<void> {
   const suppressedPrefixes = await permission.getSuppressedPrefixes();
+  const rootCreds = getRootCredentials();
   const authPacket = new Packet({
     type: "auth.guestIssued",
     origin: "server",
     actor: {
-      id: process.env.ROOT_USER_ID ?? null,
+      id: rootCreds?.userId ?? null,
       name: "Concord",
       roles: [],
       permissions: [],
@@ -269,11 +270,12 @@ function broadcast(packet: Packet | SerializedPacket): void {
  * @param suppressedPrefixes - The latest suppression prefix list that clients should begin honoring.
  */
 function broadcastSuppressedPrefixesUpdate(suppressedPrefixes: string[]): void {
+  const rootCreds = getRootCredentials();
   const packet = new Packet({
     type: "config.suppressedPrefixes",
     origin: "server",
     actor: {
-      id: process.env.ROOT_USER_ID ?? null,
+      id: rootCreds?.userId ?? null,
       name: "Concord",
       roles: [],
       permissions: [],
@@ -291,11 +293,12 @@ function broadcastSuppressedPrefixesUpdate(suppressedPrefixes: string[]): void {
  * @param discordInviteUrl - The current invite URL clients should surface in their UI.
  */
 function broadcastDiscordInviteUrlUpdate(discordInviteUrl: string): void {
+  const rootCreds = getRootCredentials();
   const packet = new Packet({
     type: "config.discordInviteUrl",
     origin: "server",
     actor: {
-      id: process.env.ROOT_USER_ID ?? null,
+      id: rootCreds?.userId ?? null,
       name: "Concord",
       roles: [],
       permissions: [],

@@ -120,8 +120,8 @@ class User {
 /**
  * Prints the current root credentials to the console for local admin access.
  */
-function printRootCredentials(): void {
-  const sessionToken = process.env.ROOT_SESSION_TOKEN || "";
+export function printRootCredentials(): void {
+  const sessionToken = rootCredentials?.sessionToken || process.env.ROOT_SESSION_TOKEN || "";
   const port = process.env.API_PORT || "8080";
 
   console.log("");
@@ -315,15 +315,34 @@ async function verifyAuthenticatedUser(userId: string, sessionToken: string): Pr
 }
 
 /**
- * Stores the current ephemeral ROOT credentials in process environment variables.
+ * ROOT credentials storage (module-private, not exposed to process.env)
+ */
+let rootCredentials: {
+  userId: string;
+  sessionToken: string;
+  hashedPass: string;
+} | null = null;
+
+/**
+ * Stores the current ephemeral ROOT credentials in memory.
  * @param root - The in-memory ROOT user record for this server run.
  * @param verifiedId - The verified ROOT user id.
  * @param sessionToken - The active ROOT session token.
  */
-function assignRootEnv(root: User, verifiedId: string, sessionToken: string): void {
-  process.env.ROOT_USER_ID = verifiedId;
-  process.env.ROOT_SESSION_TOKEN = sessionToken;
-  process.env.ROOT_HASHED_PASS = root.hashedPass;
+function assignRootCredentials(root: User, verifiedId: string, sessionToken: string): void {
+  rootCredentials = {
+    userId: verifiedId,
+    sessionToken,
+    hashedPass: root.hashedPass
+  };
+}
+
+/**
+ * Gets the stored ROOT credentials.
+ * @returns The ROOT credentials object, or null if not set.
+ */
+export function getRootCredentials(): typeof rootCredentials {
+  return rootCredentials;
 }
 
 /**
@@ -385,7 +404,7 @@ async function initializeRoot(): Promise<User | null> {
     const sessionToken = await authenticateUserSession(root.id, root.hashedPass);
     const verifiedId = await verifyAuthenticatedUser(root.id, sessionToken);
 
-    assignRootEnv(root, verifiedId, sessionToken);
+    assignRootCredentials(root, verifiedId, sessionToken);
 
     console.log(`${colors.green}[user]${colors.reset} ROOT initialized`);
     printRootCredentials();
@@ -794,7 +813,6 @@ async function resetPassword(
 export {
   User,
   initializeRoot,
-  printRootCredentials,
   createUserInternal,
   createGuestSession,
   updateUserOsrsName,

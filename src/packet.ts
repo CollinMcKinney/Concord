@@ -18,12 +18,20 @@ interface PacketObject {
   [key: string]: PacketValue | undefined;
 }
 
+import { getRootCredentials } from "./user";
+
 /**
  * Event emitter used to fan out packet lifecycle updates across services.
  */
 const packetEvents = new EventEmitter();
 
-const ROOT_ID = process.env.ROOT_ID || process.env.ROOT_USER_ID;
+/**
+ * Gets the ROOT user ID from credentials storage.
+ */
+function getRootId(): string | null {
+  return getRootCredentials()?.userId ?? null;
+}
+
 /**
  * Identity details describing the actor that originated a packet.
  */
@@ -241,7 +249,7 @@ async function addPacket(packet: Packet): Promise<boolean> {
   if (!packet || !(packet instanceof Packet)) return false;
 
   const trustedOrigin = packet.origin === "admin" || packet.origin === "discord" || packet.origin === "server";
-  const actorId = trustedOrigin ? packet.actor.id || ROOT_ID || null : packet.actor.id || null;
+  const actorId = trustedOrigin ? packet.actor.id || getRootId() || null : packet.actor.id || null;
   return persistPacket(packet, actorId);
 }
 
