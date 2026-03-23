@@ -97,8 +97,8 @@ async function loadUsersView() {
         <span class="compact-badge compact-badge-status">${state.users.length} total</span>
       </h2>
       <div class="content-panel-actions">
-        <button type="button" class="primary-button" onclick="openCreateUserModal()" title="Create a new user">+ Add User</button>
-        <button type="button" class="secondary-button" onclick="loadCurrentView()" title="Reload this view from the cache">↻ Refresh</button>
+        <button type="button" class="primary-button" data-action="open-create-user" title="Create a new user">+ Add User</button>
+        <button type="button" class="secondary-button" data-action="refresh" title="Reload this view from the cache">↻ Refresh</button>
       </div>
     </div>
     <div class="content-panel-body">
@@ -108,7 +108,7 @@ async function loadUsersView() {
           <button
             type="button"
             class="secondary-button"
-            onclick="setUsersTab('${tab.key}')"
+            data-action="set-users-tab" data-tab="${tab.key}"
             style="background: ${state.usersCurrentTab === tab.key ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.usersCurrentTab === tab.key ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
             ${tab.emoji} ${tab.name} (${tab.count})
           </button>
@@ -118,7 +118,7 @@ async function loadUsersView() {
       <!-- Search bar -->
       <div style="margin-bottom: 16px;">
         <input type="text" id="usersSearchInput" placeholder="Search users..."
-          oninput="handleUsersSearch(this);"
+          data-action="search-users"
           autocomplete="off" name="usersSearch"
           value="${escapeHtml(state.usersSearchQuery || '')}"
           style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">

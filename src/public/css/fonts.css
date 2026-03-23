@@ -1,0 +1,54 @@
+/**
+ * Self-hosted fonts
+ * Download fonts from: https://fonts.google.com/
+ * 
+ * Fredoka One: https://fonts.google.com/specimen/Fredoka+One
+ * IBM Plex Sans: https://fonts.google.com/specimen/IBM+Plex+Sans
+ * 
+ * Place downloaded font files in: src/public/fonts/
+ */
+
+/* Fredoka One */
+@font-face {
+  font-family: 'Fredoka One';
+  src: url('/fonts/FredokaOne-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* IBM Plex Sans - Regular */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/IBMPlexSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* IBM Plex Sans - Medium */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/IBMPlexSans-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* IBM Plex Sans - SemiBold */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/IBMPlexSans-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* IBM Plex Sans - Bold */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('/fonts/IBMPlexSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

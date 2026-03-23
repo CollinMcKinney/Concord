@@ -38,6 +38,11 @@ window.loadModals = async function() {
     const modals = await Promise.all(modalPromises);
     container.innerHTML = modals.join('\n');
     console.log('[Modals] Loaded', MODAL_FILES.length, 'modal files');
+    
+    // Attach event listeners after modals are loaded
+    if (window.attachModalEventListeners) {
+      window.attachModalEventListeners();
+    }
   } catch (error) {
     console.error('Failed to load modals:', error);
   }
@@ -61,3 +66,7 @@ function copyViewJson() {
     showToast('Failed to copy JSON');
   });
 }
+
+// Make functions globally accessible
+window.closeViewJsonModal = closeViewJsonModal;
+window.copyViewJson = copyViewJson;

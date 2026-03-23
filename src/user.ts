@@ -122,12 +122,11 @@ class User {
  */
 export function printRootCredentials(): void {
   const sessionToken = rootCredentials?.sessionToken || process.env.ROOT_SESSION_TOKEN || "";
-  const port = process.env.API_PORT || "8080";
+  const loginUrl = `https://localhost/admin/root?sessionToken=${sessionToken}`;
 
   console.log("");
   console.log(`${colors.gray}${"─".repeat(60)}${colors.reset}`);
-  console.log(`${colors.green}ROOT LOGIN PAGE: ${colors.cyan}http://localhost:${port}/admin/root${colors.reset}`);
-  console.log(`${colors.gray}Token: ${colors.magenta}${sessionToken}${colors.reset}`);
+  console.log(`${colors.magenta}ROOT LOGIN${colors.reset}${colors.gray}: ${colors.cyan}${loginUrl}${colors.reset}`);
   console.log(`${colors.gray}${"─".repeat(60)}${colors.reset}`);
   console.log("");
 }

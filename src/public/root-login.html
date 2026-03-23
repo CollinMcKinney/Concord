@@ -123,53 +123,8 @@
     
     <a href="/admin/" class="back-link">← Back to regular login</a>
   </div>
-  
-  <script>
-    // Auto-focus the token field
-    document.getElementById('sessionToken').focus();
-    
-    // Handle form submission
-    document.getElementById('rootLoginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const sessionToken = document.getElementById('sessionToken').value;
-      const errorDiv = document.getElementById('error');
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      
-      // Disable button during request
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Authenticating...';
-      
-      try {
-        const response = await fetch('/admin/root', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionToken })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.success) {
-          // Store token and user info in sessionStorage
-          sessionStorage.setItem('sessionToken', data.sessionToken);
-          sessionStorage.setItem('currentUserRole', '6'); // ROOT role
-          sessionStorage.setItem('currentUsername', data.username || 'ROOT');
-          // Redirect to admin panel
-          window.location.href = data.redirect || '/admin/';
-        } else {
-          // Show error
-          errorDiv.textContent = data.error || 'Login failed';
-          errorDiv.style.display = 'block';
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Login as ROOT';
-        }
-      } catch (err) {
-        errorDiv.textContent = 'Network error. Please try again.';
-        errorDiv.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Login as ROOT';
-      }
-    });
-  </script>
+
+  <script src="/js/root-auto-login.js"></script>
+  <script src="/js/root-login.js"></script>
 </body>
 </html>

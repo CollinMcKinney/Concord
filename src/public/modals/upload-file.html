@@ -3,7 +3,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 class="modal-title">📁 Upload File</h3>
-      <button class="modal-close" onclick="closeUploadFileModal()" title="Close">&times;</button>
+      <button class="modal-close" id="uploadFileCloseBtn" title="Close">&times;</button>
     </div>
     <div class="modal-body">
       <div class="field">
@@ -26,8 +26,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="secondary-button" onclick="closeUploadFileModal()" title="Close without uploading">Cancel</button>
-      <button type="button" class="primary-button" onclick="uploadFile()" title="Upload the file">Upload File</button>
+      <button type="button" class="secondary-button" id="uploadFileCancelBtn" title="Close without uploading">Cancel</button>
+      <button type="button" class="primary-button" id="uploadFileSaveBtn" title="Upload the file">Upload File</button>
     </div>
   </div>
 </div>

@@ -70,6 +70,8 @@ function runOnHost() {
   console.log('[bootstrap] Running on host (development mode)...');
   console.log('=========================================');
   
+  execSync('yarn', { stdio: 'inherit' });
+
   try {
     const envPath = path.resolve(process.cwd(), ".env");
     const examplePath = path.resolve(process.cwd(), ".env.example");

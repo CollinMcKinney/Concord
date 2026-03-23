@@ -80,8 +80,8 @@ async function loadPacketsView() {
         <span class="compact-badge compact-badge-status">${state.packets.length} total</span>
       </h2>
       <div class="content-panel-actions">
-        <button type="button" class="primary-button" onclick="openAddPacketModal()" title="Create a new packet">+ Add Packet</button>
-        <button type="button" class="secondary-button" onclick="loadPacketsView()" title="Reload this view from the cache">↻ Refresh</button>
+        <button type="button" class="primary-button" data-action="open-add-packet" title="Create a new packet">+ Add Packet</button>
+        <button type="button" class="secondary-button" data-action="refresh" title="Reload this view from the cache">↻ Refresh</button>
       </div>
     </div>
     <div class="content-panel-body">
@@ -90,7 +90,7 @@ async function loadPacketsView() {
         <button
           type="button"
           class="secondary-button"
-          onclick="setPacketsCategory('all')"
+          data-action="set-packets-category" data-category="all"
           style="background: ${state.packetsCurrentCategory === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentCategory === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
           📋 All (${state.packets.length})
         </button>
@@ -98,7 +98,7 @@ async function loadPacketsView() {
           <button
             type="button"
             class="secondary-button"
-            onclick="setPacketsCategory('${cat}')"
+            data-action="set-packets-category" data-category="${cat}"
             style="background: ${state.packetsCurrentCategory === cat ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentCategory === cat ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
             ${getCategoryEmoji(cat)} ${cat} (${categoryCounts[cat]})
           </button>
@@ -108,7 +108,7 @@ async function loadPacketsView() {
       <!-- Search bar -->
       <div style="margin-bottom: 16px;">
         <input type="text" id="packetsSearchInput" placeholder="Search packets..."
-          oninput="handlePacketsSearch(this);"
+          data-action="search-packets"
           autocomplete="off" name="packetsSearch"
           value="${escapeHtml(state.packetsSearchQuery || '')}"
           style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
@@ -140,7 +140,7 @@ function renderPacketsResults(filteredPackets, currentCategory, currentSubcatego
         <button 
           type="button" 
           class="secondary-button"
-          onclick="setPacketsSubcategory('all')"
+          data-action="set-packets-subcategory" data-subcategory="all"
           style="font-size: 0.85rem; background: ${state.packetsCurrentSubcategory === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentSubcategory === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
           All (${filteredPackets.length})
         </button>
@@ -148,7 +148,7 @@ function renderPacketsResults(filteredPackets, currentCategory, currentSubcatego
           <button 
             type="button" 
             class="secondary-button"
-            onclick="setPacketsSubcategory('${sub}')"
+            data-action="set-packets-subcategory" data-subcategory="${sub}"
             style="font-size: 0.85rem; background: ${state.packetsCurrentSubcategory === sub ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentSubcategory === sub ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
             ${sub} (${subcategoryCounts[`${currentCategory}.${sub}`] || 0})
           </button>

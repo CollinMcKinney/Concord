@@ -72,7 +72,173 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (contentPanel) {
     contentPanel.addEventListener('click', handleContentPanelClick);
   }
+
+  // =====================
+  // Global Event Delegation (replaces inline onclick/oninput handlers)
+  // =====================
+  document.addEventListener('click', handleGlobalClick);
+  document.addEventListener('input', handleGlobalInput);
 });
+
+/**
+ * Handle click events for dynamically generated content
+ */
+async function handleGlobalClick(e) {
+  const target = e.target;
+  
+  // MIME type toggle
+  const toggleButton = target.closest('[data-action="toggle-mime-type"]');
+  if (toggleButton) {
+    // Prevent double-clicking while request is in progress
+    if (toggleButton.dataset.loading === 'true') return;
+    
+    const type = toggleButton.dataset.type;
+    console.log('[MIME Toggle] Clicked:', type);
+    
+    // Read current state from the style attribute (green/accent = enabled, red = disabled)
+    const buttonHtml = toggleButton.outerHTML;
+    const isEnabled = buttonHtml.includes('var(--accent)');
+    console.log('[MIME Toggle] Current state:', isEnabled ? 'ENABLED' : 'DISABLED');
+    
+    // Set loading state
+    toggleButton.dataset.loading = 'true';
+    toggleButton.style.opacity = '0.6';
+    
+    try {
+      await toggleMimeType(type, !isEnabled);
+      console.log('[MIME Toggle] Success');
+    } catch (error) {
+      console.error('[MIME Toggle] Error:', error);
+    } finally {
+      // Clear loading state
+      toggleButton.dataset.loading = 'false';
+      toggleButton.style.opacity = '';
+    }
+    return;
+  }
+  
+  // MIME type remove
+  if (target.matches('[data-action="remove-mime-type"]')) {
+    e.stopPropagation();
+    const type = target.dataset.type;
+    removeMimeType(type);
+    return;
+  }
+  
+  // Open add MIME type modal
+  if (target.matches('[data-action="open-add-mime-type"]')) {
+    openAddMimeTypeModal();
+    return;
+  }
+  
+  // Tab/category changes
+  if (target.matches('[data-action="set-files-tab"]')) {
+    setFilesTab(target.dataset.tab);
+    return;
+  }
+  
+  if (target.matches('[data-action="set-packets-category"]')) {
+    setPacketsCategory(target.dataset.category);
+    return;
+  }
+  
+  if (target.matches('[data-action="set-packets-subcategory"]')) {
+    setPacketsSubcategory(target.dataset.subcategory);
+    return;
+  }
+  
+  if (target.matches('[data-action="set-users-tab"]')) {
+    setUsersTab(target.dataset.tab);
+    return;
+  }
+  
+  // Navigation breadcrumbs
+  if (target.matches('[data-action="navigate"]')) {
+    const view = target.dataset.view;
+    if (view) {
+      navigateTo(view);
+    }
+    return;
+  }
+  
+  // Action buttons
+  if (target.matches('[data-action="open-upload-modal"]')) {
+    openUploadFileModal();
+    return;
+  }
+  
+  if (target.matches('[data-action="open-add-category"]')) {
+    openAddCategoryModal();
+    return;
+  }
+  
+  if (target.matches('[data-action="open-add-packet"]')) {
+    openAddPacketModal();
+    return;
+  }
+  
+  if (target.matches('[data-action="open-add-prefix"]')) {
+    openAddPrefixModal();
+    return;
+  }
+  
+  if (target.matches('[data-action="open-create-user"]')) {
+    openCreateUserModal();
+    return;
+  }
+  
+  if (target.matches('[data-action="save-state"]')) {
+    saveState();
+    return;
+  }
+  
+  if (target.matches('[data-action="load-state"]')) {
+    loadState();
+    return;
+  }
+  
+  if (target.matches('[data-action="save-session-ttl"]')) {
+    saveSessionTTL();
+    return;
+  }
+  
+  if (target.matches('[data-action="restore-backup"]')) {
+    restoreEnvBackup();
+    return;
+  }
+  
+  if (target.matches('[data-action="edit-env-var"]')) {
+    openEditEnvVarModal(target.dataset.key);
+    return;
+  }
+  
+  if (target.matches('[data-action="refresh"]')) {
+    loadCurrentView();
+    return;
+  }
+}
+
+/**
+ * Handle input events for search boxes
+ */
+function handleGlobalInput(e) {
+  const target = e.target;
+  
+  if (target.matches('[data-action="search-files"]')) {
+    handleFilesSearch(target);
+    return;
+  }
+  
+  if (target.matches('[data-action="search-packets"]')) {
+    handlePacketsSearch(target);
+    return;
+  }
+  
+  if (target.matches('[data-action="search-users"]')) {
+    handleUsersSearch(target);
+    return;
+  }
+}
 
 function handleContentPanelClick(e) {
   const button = e.target.closest('button[data-action]');

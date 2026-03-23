@@ -1,6 +1,7 @@
 services:
   redis:
-    image: docker.io/library/redis:8.6.1-trixie
+    image: docker.io/library/redis:8.6.1-alpine
+
     container_name: redis
     command: redis-server --port ${REDIS_PORT} # Needed if REDIS_PORT is changed from 6379 in .env
     ports: # Bind Redis to localhost only so it's accessible from the host machine
@@ -11,7 +12,7 @@ services:
     restart: unless-stopped
 
   concord:
-    image: docker.io/library/node:24.14.0-trixie-slim
+    image: docker.io/library/node:24.14.0-alpine
     container_name: concord
     working_dir: /app
     command: node bootstrap.js
@@ -25,8 +26,9 @@ services:
       - ${API_PORT}:${API_PORT}
     volumes:
       # Container only
-      - node_modules:/app/node_modules # This one is also shared for development (TypeScript static checker needs them)
+      # - node_modules:/app/node_modules # This one is also shared for development 
       - dist:/app/dist
+      - ./node_modules:/app/node_modules:Z # TypeScript static checker needs this host-mounted.
       # Share with host for automatic live nodemon rebuilds.
       - ./.env:/app/.env:Z
       - ./nodemon.json:/app/nodemon.json:Z
@@ -41,7 +43,23 @@ services:
       # allows the host OS to download the  folder through their network bridge with the container.
       - ./data:/app/data:Z
     restart: unless-stopped
+
+  caddy:
+    image: docker.io/library/caddy:2.11.2-alpine
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on:
+      - concord 
     
 volumes:
   node_modules: {}
   dist: {}
+  caddy_data: {}
+  caddy_config: {}

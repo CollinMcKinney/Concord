@@ -5,6 +5,7 @@ import express, { Express } from "express";
 import bodyParser from "body-parser";
 import path from "path";
 import http from "http";
+import helmet from "helmet";
 import { initStorage, saveState, loadState, startAutoSaveDynamic } from "./cache";
 import { initializeRoot } from "./user";
 import { attachToServer, broadcast } from "./runelite";
@@ -29,6 +30,26 @@ const colors = {
 
 // --- Express setup ---
 const app: Express = express();
+
+// Security headers (works with or without TLS)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"], // External scripts only
+      scriptSrcAttr: ["'none'"], // No inline event handlers (onclick, etc.)
+      styleSrc: ["'self'", "'unsafe-inline'"], // Self-hosted fonts only
+      fontSrc: ["'self'"], // Self-hosted fonts only
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"], // Prevent embedding in iframes
+    }
+  },
+  frameguard: { action: 'deny' }, // Additional clickjacking protection
+  hsts: false, // Disable HSTS until TLS is enabled
+  crossOriginEmbedderPolicy: false, // Allow loading resources without CORS
+}));
+
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
@@ -73,7 +94,7 @@ async function start(): Promise<void> {
 
   server.listen(process.env.API_PORT, () => {
     console.log(`${colors.green}[server]${colors.reset} Concord is Running: `
-      + `${colors.magenta}http://localhost:${process.env.API_PORT}${colors.reset}`);
+      + `${colors.magenta}https://localhost${colors.reset}`);
   });
 }
 

@@ -47,15 +47,15 @@ function updateBreadcrumbs(view, params) {
     system: 'System'
   };
 
-  let html = '<span class="breadcrumb-item" onclick="navigateTo(\'home\')">Home</span>';
+  let html = '<span class="breadcrumb-item" data-action="navigate" data-view="home">Home</span>';
   html += '<span class="breadcrumb-separator">›</span>';
 
   if (view === 'packet-detail' && params.packetId) {
-    html += '<span class="breadcrumb-item" onclick="navigateTo(\'packets\')">Packets</span>';
+    html += '<span class="breadcrumb-item" data-action="navigate" data-view="packets">Packets</span>';
     html += '<span class="breadcrumb-separator">›</span>';
     html += `<span class="breadcrumb-item active">${escapeHtml(params.packetId.slice(0, 12))}...</span>`;
   } else if (view === 'user-detail' && params.userId) {
-    html += '<span class="breadcrumb-item" onclick="navigateTo(\'users\')">Users</span>';
+    html += '<span class="breadcrumb-item" data-action="navigate" data-view="users">Users</span>';
     html += '<span class="breadcrumb-separator">›</span>';
     html += `<span class="breadcrumb-item active">${escapeHtml(params.userName || params.userId.slice(0, 12))}</span>`;
   } else {

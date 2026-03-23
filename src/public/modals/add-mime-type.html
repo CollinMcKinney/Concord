@@ -3,7 +3,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 class="modal-title">📄 Add MIME Type</h3>
-      <button class="modal-close" onclick="closeAddMimeTypeModal()" title="Close">&times;</button>
+      <button class="modal-close" id="addMimeTypeCloseBtn" title="Close">&times;</button>
     </div>
     <div class="modal-body">
       <div class="field">
@@ -39,8 +39,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="secondary-button" onclick="closeAddMimeTypeModal()" title="Close without saving">Cancel</button>
-      <button type="button" class="primary-button" onclick="saveAddMimeType()" title="Add MIME type">Add Type</button>
+      <button type="button" class="secondary-button" id="addMimeTypeCancelBtn" title="Close without saving">Cancel</button>
+      <button type="button" class="primary-button" id="addMimeTypeSaveBtn" title="Add MIME type">Add Type</button>
     </div>
   </div>
 </div>

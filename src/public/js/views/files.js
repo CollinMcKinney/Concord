@@ -76,9 +76,9 @@ async function loadFilesView() {
         <span class="compact-badge compact-badge-status">${totalFiles} total</span>
       </h2>
       <div class="content-panel-actions">
-        <button type="button" class="primary-button" onclick="openUploadFileModal()" title="Upload a new file">+ Upload File</button>
-        <button type="button" class="secondary-button" onclick="openAddCategoryModal()" title="Create a new category">📁 Add Folder</button>
-        <button type="button" class="secondary-button" onclick="loadCurrentView()" title="Reload this view from the cache">↻ Refresh</button>
+        <button type="button" class="primary-button" data-action="open-upload-modal" title="Upload a new file">+ Upload File</button>
+        <button type="button" class="secondary-button" data-action="open-add-category" title="Create a new category">📁 Add Folder</button>
+        <button type="button" class="secondary-button" data-action="refresh" title="Reload this view from the cache">↻ Refresh</button>
       </div>
     </div>
     <div class="content-panel-body">
@@ -100,18 +100,18 @@ async function loadFilesView() {
                     const dotShadow = isEnabled ? '0 0 12px rgba(141, 240, 181, 0.8)' : '0 0 12px rgba(255, 133, 133, 0.8)';
                     const isCustom = !item.isPredefined;
                     return `
-                      <button type="button" onclick="toggleMimeType('${item.type}', ${!isEnabled})"
+                      <button type="button" data-action="toggle-mime-type" data-type="${item.type}" data-enabled="${!isEnabled}"
                         style="display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: var(--text); font-size: 0.8rem; position: relative;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                           <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; box-shadow: ${dotShadow};"></span>
                           <span>${item.emoji || '📄'} ${item.type}</span>
                         </div>
-                        ${isCustom ? `<span onclick="event.stopPropagation(); removeMimeType('${item.type}')" style="background: none; border: none; color: #ff8585; cursor: pointer; padding: 2px 6px; font-size: 1.1rem; line-height: 1;">🗑️</span>` : ''}
+                        ${isCustom ? `<span data-action="remove-mime-type" data-type="${item.type}" style="background: none; border: none; color: #ff8585; cursor: pointer; padding: 2px 6px; font-size: 1.1rem; line-height: 1;">🗑️</span>` : ''}
                       </button>
                     `;
                   }).join('')}
                   <!-- Add custom type button -->
-                  <button type="button" onclick="openAddMimeTypeModal()"
+                  <button type="button" data-action="open-add-mime-type"
                     style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(141, 240, 181, 0.1); border: 1px dashed var(--accent); color: var(--accent); font-size: 1.2rem;">
                     <span>➕</span>
                     <span style="font-size: 0.75rem;">Add Type</span>
@@ -128,7 +128,7 @@ async function loadFilesView() {
         <button
           type="button"
           class="secondary-button"
-          onclick="setFilesTab('all')"
+          data-action="set-files-tab" data-tab="all"
           style="background: ${state.filesCurrentTab === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.filesCurrentTab === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
           📋 All (${totalFiles})
         </button>
@@ -136,7 +136,7 @@ async function loadFilesView() {
           <button
             type="button"
             class="secondary-button"
-            onclick="setFilesTab('${cat}')"
+            data-action="set-files-tab" data-tab="${cat}"
             style="background: ${state.filesCurrentTab === cat ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.filesCurrentTab === cat ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
             ${getCategoryIcon(cat)} ${formatCategoryName(cat)} (${fileCounts[cat]})
           </button>
@@ -146,7 +146,7 @@ async function loadFilesView() {
       <!-- Search bar -->
       <div style="margin-bottom: 16px;">
         <input type="text" id="filesSearchInput" placeholder="Search files..."
-          oninput="handleFilesSearch(this);"
+          data-action="search-files"
           autocomplete="off" name="filesSearch"
           value="${escapeHtml(state.filesSearchQuery || '')}"
           style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
@@ -501,9 +501,9 @@ async function toggleMimeType(mimeType, enable) {
     const currentTypes = await apiCall('getAllowedMimeTypes') || [];
     const safeTypes = Array.isArray(currentTypes) ? currentTypes : [];
     const actualTypes = safeTypes.length === 0 ? PREDEFINED_TYPE_LIST : safeTypes;
-    
+
     let newTypes;
-    
+
     if (enable) {
       // Add type if not already present
       newTypes = [...actualTypes.filter((v, i, a) => a.indexOf(v) === i), mimeType];
@@ -511,13 +511,15 @@ async function toggleMimeType(mimeType, enable) {
       // Remove type (allow disabling all to block uploads)
       newTypes = actualTypes.filter(t => t !== mimeType);
     }
-    
+
     await apiCall('setAllowedMimeTypes', newTypes);
     await loadFilesView();
     showToast(enable ? 'MIME type enabled' : 'MIME type disabled');
+    return Promise.resolve();
   } catch (error) {
     showToast(`Error: ${error.message}`);
     await loadFilesView();
+    return Promise.reject(error);
   }
 }
 

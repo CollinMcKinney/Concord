@@ -3,7 +3,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 class="modal-title">🎭 Set User Role</h3>
-      <button class="modal-close" onclick="closeSetRoleModal()" title="Close">&times;</button>
+      <button class="modal-close" id="setRoleCloseBtn" title="Close">&times;</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="setRoleUserId">
@@ -21,8 +21,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="secondary-button" onclick="closeSetRoleModal()" title="Close without saving">Cancel</button>
-      <button type="button" class="primary-button" onclick="saveRoleChange()" title="Save the new role">Save Role</button>
+      <button type="button" class="secondary-button" id="setRoleCancelBtn" title="Close without saving">Cancel</button>
+      <button type="button" class="primary-button" id="setRoleSaveBtn" title="Save the new role">Save Role</button>
     </div>
   </div>
 </div>

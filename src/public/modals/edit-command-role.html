@@ -3,7 +3,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 class="modal-title">⚙️ Edit Command Permission</h3>
-      <button class="modal-close" onclick="closeEditCommandRoleModal()" title="Close">&times;</button>
+      <button class="modal-close" id="editCommandRoleCloseBtn" title="Close">&times;</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="editCommandRoleCommand">
@@ -23,8 +23,8 @@
       <div class="field-help">This sets the minimum role required to execute this command through the admin panel.</div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="secondary-button" onclick="closeEditCommandRoleModal()" title="Close without saving">Cancel</button>
-      <button type="button" class="primary-button" onclick="saveCommandRoleChange()" title="Save the new role requirement">Save Role</button>
+      <button type="button" class="secondary-button" id="editCommandRoleCancelBtn" title="Close without saving">Cancel</button>
+      <button type="button" class="primary-button" id="editCommandRoleSaveBtn" title="Save the new role requirement">Save Role</button>
     </div>
   </div>
 </div>

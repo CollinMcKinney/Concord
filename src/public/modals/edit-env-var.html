@@ -3,7 +3,7 @@
   <div class="modal">
     <div class="modal-header">
       <h3 class="modal-title">🔧 Edit Environment Variable</h3>
-      <button class="modal-close" onclick="closeEditEnvVarModal()" title="Close">&times;</button>
+      <button class="modal-close" id="editEnvVarCloseBtn" title="Close">&times;</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="editEnvVarKey">
@@ -14,8 +14,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="secondary-button" onclick="closeEditEnvVarModal()" title="Close without saving">Cancel</button>
-      <button type="button" class="primary-button" onclick="saveEnvVar()" title="Save the new value">Save Changes</button>
+      <button type="button" class="secondary-button" id="editEnvVarCancelBtn" title="Close without saving">Cancel</button>
+      <button type="button" class="primary-button" id="editEnvVarSaveBtn" title="Save the new value">Save Changes</button>
     </div>
   </div>
 </div>

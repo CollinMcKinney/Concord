@@ -25,6 +25,13 @@ const WS_MAX_PAYLOAD_SIZE = rateLimiter.WS_RATE_LIMITS.MAX_PAYLOAD_SIZE;
 const connectionCounts = new Map<string, number>();
 const messageCounts = new Map<WebSocket, { count: number; resetTime: number }>();
 
+// Guest session rate limiting (per IP)
+const guestSessionRateLimits = new Map<string, { count: number; resetTime: number }>();
+const GUEST_SESSION_RATE_LIMIT = {
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  maxSessions: 10 // per IP
+};
+
 /**
  * Extended WebSocket interface with additional properties for client authentication and initialization.
  */
@@ -227,12 +234,29 @@ function clearGuestInitTimer(webSocket: ExtendedWebSocket): void {
 /**
  * Initializes a guest session for a WebSocket client.
  * Creates a new guest user and session, then sends the authentication packet.
+ * Rate limited to prevent resource exhaustion attacks.
  * @param webSocket - The WebSocket client to initialize.
  * @param clientIp - The IP address of the client.
  */
 async function initializeGuestSession(webSocket: ExtendedWebSocket, clientIp: string): Promise<void> {
   if (webSocket.initialized || webSocket.readyState !== WebSocket.OPEN) {
     return;
+  }
+
+  // Check guest session rate limit
+  const now = Date.now();
+  const rateLimit = guestSessionRateLimits.get(clientIp);
+  
+  if (rateLimit && now < rateLimit.resetTime) {
+    if (rateLimit.count >= GUEST_SESSION_RATE_LIMIT.maxSessions) {
+      console.log(`${colors.yellow}[runelite]${colors.reset} Guest session rate limited: ${colors.cyan}${clientIp}${colors.reset}`);
+      webSocket.close(4429, 'Too many guest sessions');
+      return;
+    }
+    rateLimit.count++;
+  } else {
+    // Reset or initialize rate limit counter
+    guestSessionRateLimits.set(clientIp, { count: 1, resetTime: now + GUEST_SESSION_RATE_LIMIT.windowMs });
   }
 
   clearGuestInitTimer(webSocket);

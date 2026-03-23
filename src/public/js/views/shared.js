@@ -14,8 +14,8 @@ async function loadPrefixesView() {
     <div class="content-panel-header">
       <h2 class="content-panel-title">🚫 Message Suppression</h2>
       <div class="content-panel-actions">
-        <button type="button" class="primary-button" onclick="openAddPrefixModal()" title="Add a new suppressed string">+ Add</button>
-        <button type="button" class="secondary-button" onclick="loadCurrentView()" title="Reload this view from the cache">↻ Refresh</button>
+        <button type="button" class="primary-button" data-action="open-add-prefix" title="Add a new suppressed string">+ Add</button>
+        <button type="button" class="secondary-button" data-action="refresh" title="Reload this view from the cache">↻ Refresh</button>
       </div>
     </div>
     <div class="content-panel-body">
@@ -97,7 +97,7 @@ async function loadCommandRolesView() {
     <div class="content-panel-header">
       <h2 class="content-panel-title">⚙️ Permissions</h2>
       <div class="content-panel-actions">
-        <button type="button" class="secondary-button" onclick="loadCurrentView()" title="Reload this view from the cache">↻ Refresh</button>
+        <button type="button" class="secondary-button" data-action="refresh" title="Reload this view from the cache">↻ Refresh</button>
       </div>
     </div>
     <div class="content-panel-body">
@@ -199,8 +199,8 @@ async function loadSystemView() {
             <label>💾 Cache Backup</label>
             <div style="color: var(--muted); font-size: 0.85rem; margin-bottom: 12px;">Save or restore the cache contents to/from the on-disk backup file.</div>
             <div style="display: flex; gap: 8px;">
-              <button type="button" class="primary-button" onclick="saveState()" title="Save all cache data to disk" style="flex: 1;">💾 Save State</button>
-              <button type="button" class="secondary-button" onclick="loadState()" title="Load cache data from disk backup" style="flex: 1;">📂 Load State</button>
+              <button type="button" class="primary-button" data-action="save-state" title="Save all cache data to disk" style="flex: 1;">💾 Save State</button>
+              <button type="button" class="secondary-button" data-action="load-state" title="Load cache data from disk backup" style="flex: 1;">📂 Load State</button>
             </div>
           </div>
         </div>
@@ -214,7 +214,7 @@ async function loadSystemView() {
             <div style="display: flex; gap: 8px; align-items: center;">
               <input type="number" id="sessionTTLInput" value="${escapeHtml(sessionTTL)}" min="1" max="720" style="width: 100px; padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
               <span style="color: var(--text);">hours</span>
-              <button type="button" class="primary-button" onclick="saveSessionTTL()" title="Save session TTL">Save</button>
+              <button type="button" class="primary-button" data-action="save-session-ttl" title="Save session TTL">Save</button>
             </div>
             <div class="field-help">Current: ${escapeHtml(sessionTTL)} hours. Changes take effect immediately for new logins.</div>
           </div>
@@ -229,7 +229,7 @@ async function loadSystemView() {
             ${hasBackup ? `
               <div style="padding: 8px; background: rgba(141, 240, 181, 0.1); border-radius: 8px; color: var(--accent); font-size: 0.85rem; margin-bottom: 8px;">
                 ✅ Backup available (.env.backup)
-                <button type="button" class="secondary-button" onclick="restoreEnvBackup()" style="margin-left: 8px; font-size: 0.75rem; padding: 4px 8px;">↩️ Restore Backup</button>
+                <button type="button" class="secondary-button" data-action="restore-backup" style="margin-left: 8px; font-size: 0.75rem; padding: 4px 8px;">↩️ Restore Backup</button>
               </div>
             ` : ''}
             ${Object.entries(state.envVars).filter(([key]) => key !== 'SESSION_TTL_HOURS' && key !== '__HAS_BACKUP').length === 0 ? `
@@ -250,7 +250,7 @@ async function loadSystemView() {
                   </div>
                 </div>
                 <div class="compact-card-actions">
-                  <button type="button" class="secondary-button" onclick="openEditEnvVarModal('${escapeHtml(key)}')" style="font-size: 0.75rem; padding: 6px 10px;">✏️ Edit</button>
+                  <button type="button" class="secondary-button" data-action="edit-env-var" data-key="${escapeHtml(key)}" style="font-size: 0.75rem; padding: 6px 10px;">✏️ Edit</button>
                 </div>
               </div>
             `).join('')}
