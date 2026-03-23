@@ -690,14 +690,26 @@ router.post("/call", async (req: Request, res: Response) => {
   // Get client IP for rate limiting
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 
-  // Check rate limit for API calls
-  const apiAllowed = await rateLimiter.checkRateLimit(clientIp, 'API');
-  if (!apiAllowed) {
-    const remaining = await rateLimiter.getRemainingAttempts(clientIp, 'API');
-    return res.status(429).json({
-      error: "Rate limit exceeded",
-      retryAfter: remaining
-    });
+  // Apply stricter rate limiting for authentication attempts
+  if (functionName === 'authenticate') {
+    const loginAllowed = await rateLimiter.checkRateLimit(clientIp, 'LOGIN');
+    if (!loginAllowed) {
+      const remaining = await rateLimiter.getRemainingAttempts(clientIp, 'LOGIN');
+      return res.status(429).json({
+        error: "Too many login attempts",
+        retryAfter: remaining
+      });
+    }
+  } else {
+    // Check rate limit for other API calls
+    const apiAllowed = await rateLimiter.checkRateLimit(clientIp, 'API');
+    if (!apiAllowed) {
+      const remaining = await rateLimiter.getRemainingAttempts(clientIp, 'API');
+      return res.status(429).json({
+        error: "Rate limit exceeded",
+        retryAfter: remaining
+      });
+    }
   }
 
   const parsedArgs = Array.isArray(args) ? args : [];

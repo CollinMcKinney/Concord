@@ -16,16 +16,37 @@ const redisClient = createClient({
   }
 });
 
-// Rate limit configurations
+// Rate limit configurations (can be overridden via environment variables)
 const RATE_LIMITS = {
   // Login attempts: 5 per 15 minutes
-  LOGIN: { windowMs: 15 * 60 * 1000, maxAttempts: 5 },
-  
+  LOGIN: { 
+    windowMs: parseInt(process.env.RATE_LIMIT_LOGIN_WINDOW_MS || '900000') || 15 * 60 * 1000,
+    maxAttempts: parseInt(process.env.RATE_LIMIT_LOGIN_MAX || '5') || 5
+  },
+
   // API calls: 100 per minute
-  API: { windowMs: 60 * 1000, maxAttempts: 100 },
-  
+  API: { 
+    windowMs: parseInt(process.env.RATE_LIMIT_API_WINDOW_MS || '60000') || 60 * 1000,
+    maxAttempts: parseInt(process.env.RATE_LIMIT_API_MAX || '100') || 100
+  },
+
   // Env changes: 10 per 5 minutes
-  ENV_CHANGE: { windowMs: 5 * 60 * 1000, maxAttempts: 10 }
+  ENV_CHANGE: { 
+    windowMs: parseInt(process.env.RATE_LIMIT_ENV_WINDOW_MS || '300000') || 5 * 60 * 1000,
+    maxAttempts: parseInt(process.env.RATE_LIMIT_ENV_MAX || '10') || 10
+  },
+};
+
+// WebSocket-specific rate limiting config
+export const WS_RATE_LIMITS = {
+  // WebSocket connections per IP
+  MAX_CONNECTIONS: parseInt(process.env.RATE_LIMIT_WS_CONNECTIONS || '10') || 10,
+  
+  // WebSocket messages per second
+  MAX_MESSAGES_PER_SECOND: parseInt(process.env.RATE_LIMIT_WS_MESSAGES || '20') || 20,
+  
+  // WebSocket max payload size (bytes)
+  MAX_PAYLOAD_SIZE: parseInt(process.env.RATE_LIMIT_WS_PAYLOAD || '1048576') || 1024 * 1024
 };
 
 /**

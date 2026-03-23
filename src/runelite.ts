@@ -2,6 +2,7 @@ import WebSocket, { Server as WebSocketServer } from "ws";
 import http from "http";
 import { Packet, persistPacket } from "./packet";
 import { createGuestSession, updateUserOsrsName, getRootCredentials } from "./user";
+import * as rateLimiter from "./rateLimiter";
 import * as permission from "./permission";
 import * as auth from "./auth";
 import type { PacketValue, SerializedPacket } from "./packet";
@@ -14,6 +15,15 @@ const colors = {
   yellow: '\x1b[33m',
   red: '\x1b[31m',
 };
+
+// WebSocket rate limiting (from rateLimiter config)
+const WS_MAX_CONNECTIONS_PER_IP = rateLimiter.WS_RATE_LIMITS.MAX_CONNECTIONS;
+const WS_MAX_MESSAGES_PER_SECOND = rateLimiter.WS_RATE_LIMITS.MAX_MESSAGES_PER_SECOND;
+const WS_MAX_PAYLOAD_SIZE = rateLimiter.WS_RATE_LIMITS.MAX_PAYLOAD_SIZE;
+
+// Connection tracking for rate limiting
+const connectionCounts = new Map<string, number>();
+const messageCounts = new Map<WebSocket, { count: number; resetTime: number }>();
 
 /**
  * Extended WebSocket interface with additional properties for client authentication and initialization.
@@ -87,14 +97,33 @@ async function handleIncomingPacket(packet: Packet): Promise<boolean> {
  * @returns The created WebSocket server instance.
  */
 function attachToServer(httpServer: http.Server): WebSocketServer {
-  const webSocketServer = new WebSocketServer({ server: httpServer });
+  const webSocketServer = new WebSocketServer({ 
+    server: httpServer,
+    maxPayload: WS_MAX_PAYLOAD_SIZE
+  });
 
   webSocketServer.on("connection", async (webSocket: ExtendedWebSocket, req: http.IncomingMessage) => {
-    const clientIp = req.socket.remoteAddress;
+    const clientIp = req.socket.remoteAddress || 'unknown';
+    
+    // Connection rate limiting per IP
+    const currentConnections = connectionCounts.get(clientIp) || 0;
+    if (currentConnections >= WS_MAX_CONNECTIONS_PER_IP) {
+      console.log(`${colors.yellow}[runelite]${colors.reset} Connection rate limited: ${colors.cyan}${clientIp}${colors.reset}`);
+      webSocket.close(4429, 'Too many connections');
+      return;
+    }
+    
+    // Track connection
+    connectionCounts.set(clientIp, currentConnections + 1);
+    
     console.log(`${colors.green}[runelite]${colors.reset} Client connected from ${colors.cyan}${clientIp}${colors.reset}`);
     clients.add(webSocket);
     webSocket.clientAuth = undefined;
     webSocket.initialized = false;
+    
+    // Initialize message rate limiting for this connection
+    messageCounts.set(webSocket, { count: 0, resetTime: Date.now() + 1000 });
+    
     webSocket.guestInitTimer = setTimeout(() => {
       initializeGuestSession(webSocket, clientIp as string).catch(err => {
         console.error(`${colors.red}[runelite]${colors.reset} Failed to initialize guest session for ${clientIp}:`, err);
@@ -103,6 +132,29 @@ function attachToServer(httpServer: http.Server): WebSocketServer {
     }, GUEST_INIT_DELAY_MS);
 
     webSocket.on("message", async (rawPacket: Buffer | string) => {
+      // Message rate limiting
+      const msgData = messageCounts.get(webSocket);
+      const now = Date.now();
+      
+      if (msgData && now < msgData.resetTime) {
+        if (msgData.count >= WS_MAX_MESSAGES_PER_SECOND) {
+          console.log(`${colors.yellow}[runelite]${colors.reset} Message rate limited: ${colors.cyan}${clientIp}${colors.reset}`);
+          return; // Silently drop excess messages
+        }
+        msgData.count++;
+      } else {
+        // Reset counter every second
+        messageCounts.set(webSocket, { count: 1, resetTime: now + 1000 });
+      }
+      
+      // Payload size check
+      const payloadSize = typeof rawPacket === 'string' ? rawPacket.length : rawPacket.length;
+      if (payloadSize > WS_MAX_PAYLOAD_SIZE) {
+        console.log(`${colors.yellow}[runelite]${colors.reset} Payload too large from ${colors.cyan}${clientIp}${colors.reset}`);
+        webSocket.send(JSON.stringify({ error: 'Payload too large' }));
+        return;
+      }
+      
       try {
         const rawJson = typeof rawPacket === "string" ? rawPacket : rawPacket.toString("utf8");
         const packet = Packet.fromJson(rawJson);
@@ -137,6 +189,18 @@ function attachToServer(httpServer: http.Server): WebSocketServer {
 
     webSocket.on("close", () => {
       console.log(`${colors.green}[runelite]${colors.reset} Client disconnected: ${colors.cyan}${clientIp}${colors.reset}`);
+      
+      // Clean up connection tracking
+      const currentConnections = connectionCounts.get(clientIp) || 0;
+      if (currentConnections > 1) {
+        connectionCounts.set(clientIp, currentConnections - 1);
+      } else {
+        connectionCounts.delete(clientIp);
+      }
+      
+      // Clean up message rate limiting
+      messageCounts.delete(webSocket);
+      
       clearGuestInitTimer(webSocket);
       clients.delete(webSocket);
     });
