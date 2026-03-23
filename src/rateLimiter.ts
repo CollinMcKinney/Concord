@@ -24,10 +24,10 @@ const RATE_LIMITS = {
     maxAttempts: parseInt(process.env.RATE_LIMIT_LOGIN_MAX || '5') || 5
   },
 
-  // API calls: 100 per minute
-  API: { 
+  // API calls: 200 per minute (sliding window)
+  API: {
     windowMs: parseInt(process.env.RATE_LIMIT_API_WINDOW_MS || '60000') || 60 * 1000,
-    maxAttempts: parseInt(process.env.RATE_LIMIT_API_MAX || '100') || 100
+    maxAttempts: parseInt(process.env.RATE_LIMIT_API_MAX || '200') || 200
   },
 
   // Env changes: 10 per 5 minutes
@@ -60,7 +60,8 @@ export async function initRateLimiter(): Promise<void> {
 }
 
 /**
- * Check if an action is rate limited
+ * Check if an action is rate limited using sliding window algorithm.
+ * Stores timestamps of recent requests and removes old ones as they age out.
  * @param key - Unique identifier for the action (e.g., IP + action type)
  * @param limitType - Type of rate limit to apply
  * @returns True if action is allowed, false if rate limited
@@ -68,22 +69,27 @@ export async function initRateLimiter(): Promise<void> {
 export async function checkRateLimit(key: string, limitType: keyof typeof RATE_LIMITS): Promise<boolean> {
   const limit = RATE_LIMITS[limitType];
   const redisKey = `ratelimit:${limitType}:${key}`;
-  
-  // Get current count
-  const current = await redisClient.get(redisKey);
-  const count = current ? parseInt(current) : 0;
-  
-  if (count >= limit.maxAttempts) {
-    // Check if window has expired
-    const ttl = await redisClient.ttl(redisKey);
-    if (ttl > 0) {
-      console.log(`${colors.yellow}[RateLimiter]${colors.reset} Rate limited: ${colors.cyan}${key}${colors.reset} (${limitType}) - ${count}/${limit.maxAttempts}`);
-      return false;
-    }
+  const now = Date.now();
+  const windowStart = now - limit.windowMs;
+
+  // Get recent request timestamps using sorted set
+  const timestamps = await redisClient.zRangeByScore(redisKey, windowStart, '+inf');
+  const recentCount = timestamps.length;
+
+  if (recentCount >= limit.maxAttempts) {
+    // Calculate time until next request is allowed
+    const oldestTimestamp = timestamps[0];
+    const retryAfter = Math.ceil((parseInt(oldestTimestamp) + limit.windowMs - now) / 1000);
+    console.log(`${colors.yellow}[RateLimiter]${colors.reset} Rate limited: ${colors.cyan}${key}${colors.reset} (${limitType}) - retry in ${retryAfter}s`);
+    return false;
   }
+
+  // Add current request timestamp to sorted set
+  await redisClient.zAdd(redisKey, { score: now, value: now.toString() });
   
-  // Increment counter
-  await redisClient.set(redisKey, (count + 1).toString(), { EX: Math.floor(limit.windowMs / 1000) });
+  // Set expiry to clean up old keys automatically
+  await redisClient.expire(redisKey, Math.ceil(limit.windowMs / 1000) + 1);
+
   return true;
 }
 
@@ -96,11 +102,13 @@ export async function checkRateLimit(key: string, limitType: keyof typeof RATE_L
 export async function getRemainingAttempts(key: string, limitType: keyof typeof RATE_LIMITS): Promise<number> {
   const limit = RATE_LIMITS[limitType];
   const redisKey = `ratelimit:${limitType}:${key}`;
-  
-  const current = await redisClient.get(redisKey);
-  const count = current ? parseInt(current) : 0;
-  
-  return Math.max(0, limit.maxAttempts - count);
+  const now = Date.now();
+  const windowStart = now - limit.windowMs;
+
+  const timestamps = await redisClient.zRangeByScore(redisKey, windowStart, '+inf');
+  const recentCount = timestamps.length;
+
+  return Math.max(0, limit.maxAttempts - recentCount);
 }
 
 /**
@@ -117,16 +125,21 @@ export async function getRateLimitInfo(key: string, limitType: keyof typeof RATE
 }> {
   const limit = RATE_LIMITS[limitType];
   const redisKey = `ratelimit:${limitType}:${key}`;
+  const now = Date.now();
+  const windowStart = now - limit.windowMs;
+
+  const timestamps = await redisClient.zRangeByScore(redisKey, windowStart, '+inf');
+  const recentCount = timestamps.length;
   
-  const current = await redisClient.get(redisKey);
-  const count = current ? parseInt(current) : 0;
-  const ttl = await redisClient.ttl(redisKey);
-  
+  // Calculate when the oldest request will expire
+  const oldestTimestamp = timestamps[0] ? parseInt(timestamps[0]) : now;
+  const resetIn = timestamps.length > 0 ? (oldestTimestamp + limit.windowMs - now) : 0;
+
   return {
-    current: count,
+    current: recentCount,
     max: limit.maxAttempts,
-    remaining: Math.max(0, limit.maxAttempts - count),
-    resetIn: ttl > 0 ? ttl * 1000 : 0
+    remaining: Math.max(0, limit.maxAttempts - recentCount),
+    resetIn: Math.max(0, resetIn)
   };
 }
 

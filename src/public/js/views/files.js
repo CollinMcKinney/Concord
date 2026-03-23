@@ -2,6 +2,25 @@
  * Admin Panel - Files View
  */
 
+// Predefined safe MIME types (JavaFX + Discord compatible)
+const PREDEFINED_MIME_TYPES = [
+  // Images
+  { type: 'image/png', emoji: '🖼️' },
+  { type: 'image/jpeg', emoji: '🖼️' },
+  { type: 'image/gif', emoji: '🖼️' },
+  { type: 'image/webp', emoji: '🖼️' },
+
+  // Videos
+  { type: 'video/mp4', emoji: '🎬' },
+  { type: 'video/webm', emoji: '🎬' },
+
+  // Audio
+  { type: 'audio/mpeg', emoji: '🎵' },
+  { type: 'audio/wav', emoji: '🎵' }
+];
+
+const PREDEFINED_TYPE_LIST = PREDEFINED_MIME_TYPES.map(t => t.type);
+
 async function loadFilesView() {
   const allFiles = await apiCall('listFiles');
   state.files = allFiles || {};
@@ -10,7 +29,16 @@ async function loadFilesView() {
   // Get categories
   const categories = await apiCall('getCategories');
   state.filesCategories = categories || ['clan_icons', 'chat_badges', 'branding'];
-  
+
+  // Get allowed MIME types (default to all predefined if empty)
+  try {
+    const result = await apiCall('getAllowedMimeTypes');
+    const allowedTypes = Array.isArray(result) && result.length > 0 ? result : PREDEFINED_MIME_TYPES.map(t => t.type);
+    state.allowedMimeTypes = allowedTypes;
+  } catch (e) {
+    state.allowedMimeTypes = PREDEFINED_MIME_TYPES.map(t => t.type);
+  }
+
   // Put branding first, then sort the rest alphabetically
   const sortedCategories = ['branding', ...state.filesCategories.filter(c => c !== 'branding').sort()];
   state.filesCategories = sortedCategories;
@@ -22,6 +50,17 @@ async function loadFilesView() {
     fileCounts[category] = (state.files[category] || []).length;
     totalFiles += fileCounts[category];
   }
+
+  // Get allowed MIME types
+  const allowedTypes = Array.isArray(state.allowedMimeTypes) ? state.allowedMimeTypes : [];
+  const predefinedTypes = PREDEFINED_MIME_TYPES.map(t => t.type);
+  const customTypes = allowedTypes.filter(t => !predefinedTypes.includes(t));
+  
+  // Build combined list of all MIME types (predefined + custom)
+  const allMimeTypes = [
+    ...PREDEFINED_MIME_TYPES.map(item => ({ ...item, isPredefined: true })),
+    ...customTypes.map(type => ({ type, emoji: '📄', isPredefined: false }))
+  ];
 
   // Get files for current category with search filtering
   const currentFiles = (state.files[state.filesCurrentTab] || []).filter(f => {
@@ -43,6 +82,47 @@ async function loadFilesView() {
       </div>
     </div>
     <div class="content-panel-body">
+      <!-- Allowed MIME Types Section (ROOT only) -->
+      ${permissions.canPerformAction('setAllowedMimeTypes') ? `
+        <div class="compact-card" style="display: block; margin-bottom: 16px;">
+          <div class="compact-card-body">
+            <div class="field">
+              <label>🔒 Allowed File Types</label>
+              <div style="color: var(--muted); font-size: 0.85rem; margin-bottom: 12px;">Only these MIME types can be uploaded. ROOT only.</div>
+
+              <!-- All MIME types (predefined + custom) -->
+              <div style="margin-bottom: 12px;">
+                <div style="font-size: 0.8rem; color: var(--muted); margin-bottom: 6px;">MIME Types (click to toggle):</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px;">
+                  ${allMimeTypes.map(item => {
+                    const isEnabled = allowedTypes.includes(item.type);
+                    const dotColor = isEnabled ? 'var(--accent)' : '#ff8585';
+                    const dotShadow = isEnabled ? '0 0 12px rgba(141, 240, 181, 0.8)' : '0 0 12px rgba(255, 133, 133, 0.8)';
+                    const isCustom = !item.isPredefined;
+                    return `
+                      <button type="button" onclick="toggleMimeType('${item.type}', ${!isEnabled})"
+                        style="display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: var(--text); font-size: 0.8rem; position: relative;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; box-shadow: ${dotShadow};"></span>
+                          <span>${item.emoji || '📄'} ${item.type}</span>
+                        </div>
+                        ${isCustom ? `<span onclick="event.stopPropagation(); removeMimeType('${item.type}')" style="background: none; border: none; color: #ff8585; cursor: pointer; padding: 2px 6px; font-size: 1.1rem; line-height: 1;">🗑️</span>` : ''}
+                      </button>
+                    `;
+                  }).join('')}
+                  <!-- Add custom type button -->
+                  <button type="button" onclick="openAddMimeTypeModal()"
+                    style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(141, 240, 181, 0.1); border: 1px dashed var(--accent); color: var(--accent); font-size: 1.2rem;">
+                    <span>➕</span>
+                    <span style="font-size: 0.75rem;">Add Type</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+      
       <!-- Sub-tabs for file categories -->
       <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; flex-wrap: wrap;">
         <button
@@ -269,9 +349,13 @@ async function uploadFile() {
   const reader = new FileReader();
   reader.onload = async function(e) {
     try {
-      const base64Data = e.target.result.split(',')[1]; // Remove data:image/...;base64, prefix
+      const dataUrl = e.target.result;
+      // Extract MIME type from data URL (e.g., "data:image/png;base64,")
+      const mimeMatch = dataUrl.match(/^data:([^;]+);base64,/);
+      const mimeType = mimeMatch ? mimeMatch[1] : file.type || 'application/octet-stream';
+      const base64Data = dataUrl.split(',')[1]; // Remove data:...;base64, prefix
 
-      await apiCall('uploadFile', [category, fileName, base64Data]);
+      await apiCall('uploadFile', [category, fileName, base64Data, mimeType]);
       showToast('File uploaded successfully');
       closeUploadFileModal();
       loadCurrentView();
@@ -362,6 +446,109 @@ window.deleteFile = deleteFile;
 window.openAddCategoryModal = openAddCategoryModal;
 window.closeAddCategoryModal = closeAddCategoryModal;
 window.addCategory = addCategory;
+window.toggleMimeType = toggleMimeType;
+window.removeMimeType = removeMimeType;
+window.openAddMimeTypeModal = openAddMimeTypeModal;
+window.closeAddMimeTypeModal = closeAddMimeTypeModal;
+window.saveAddMimeType = saveAddMimeType;
+
+function openAddMimeTypeModal() {
+  document.getElementById('addMimeTypeValue').value = '';
+  document.getElementById('addMimeTypeModal').classList.add('active');
+}
+
+function closeAddMimeTypeModal() {
+  document.getElementById('addMimeTypeModal').classList.remove('active');
+}
+
+async function saveAddMimeType() {
+  const input = document.getElementById('addMimeTypeValue');
+  const mimeType = input.value.trim();
+
+  if (!mimeType) {
+    showToast('Please enter a MIME type');
+    return;
+  }
+
+  // Basic MIME type validation
+  if (!/^[a-z]+\/[a-z0-9.+_-]+$/i.test(mimeType)) {
+    showToast('Invalid MIME type format (e.g., image/png)');
+    return;
+  }
+
+  try {
+    const currentTypes = await apiCall('getAllowedMimeTypes') || [];
+    const safeTypes = Array.isArray(currentTypes) ? currentTypes : [];
+
+    if (safeTypes.includes(mimeType)) {
+      showToast('MIME type already allowed');
+      return;
+    }
+
+    const newTypes = [...safeTypes, mimeType];
+    await apiCall('setAllowedMimeTypes', newTypes);
+
+    closeAddMimeTypeModal();
+    await loadFilesView();
+    showToast('MIME type added');
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
+
+async function toggleMimeType(mimeType, enable) {
+  try {
+    const currentTypes = await apiCall('getAllowedMimeTypes') || [];
+    const safeTypes = Array.isArray(currentTypes) ? currentTypes : [];
+    const actualTypes = safeTypes.length === 0 ? PREDEFINED_TYPE_LIST : safeTypes;
+    
+    let newTypes;
+    
+    if (enable) {
+      // Add type if not already present
+      newTypes = [...actualTypes.filter((v, i, a) => a.indexOf(v) === i), mimeType];
+    } else {
+      // Remove type (allow disabling all to block uploads)
+      newTypes = actualTypes.filter(t => t !== mimeType);
+    }
+    
+    await apiCall('setAllowedMimeTypes', newTypes);
+    await loadFilesView();
+    showToast(enable ? 'MIME type enabled' : 'MIME type disabled');
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+    await loadFilesView();
+  }
+}
+
+async function removeMimeType(mimeType) {
+  // Only allow removing custom types, not predefined ones
+  if (PREDEFINED_TYPE_LIST.includes(mimeType)) {
+    showToast('Cannot delete predefined MIME types - use toggle to disable');
+    return;
+  }
+  
+  if (!confirm(`Delete '${mimeType}' from allowed types?`)) {
+    return;
+  }
+  
+  try {
+    const currentTypes = await apiCall('getAllowedMimeTypes') || [];
+    const safeTypes = Array.isArray(currentTypes) ? currentTypes : [];
+    const newTypes = safeTypes.filter(t => t !== mimeType);
+    
+    if (newTypes.length === 0) {
+      showToast('Cannot remove all MIME types');
+      return;
+    }
+    
+    await apiCall('setAllowedMimeTypes', newTypes);
+    await loadFilesView();
+    showToast('MIME type removed');
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
 
 function openAddCategoryModal() {
   document.getElementById('addCategoryName').value = '';

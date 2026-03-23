@@ -16,7 +16,8 @@ const MODAL_FILES = [
   'edit-env-var.html',
   'view-json.html',
   'change-password.html',
-  'reset-password.html'
+  'reset-password.html',
+  'add-mime-type.html'
 ];
 
 // Load all modals on page load and return promise

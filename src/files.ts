@@ -11,6 +11,36 @@ const colors = {
   red: '\x1b[31m',
 };
 
+// Default allowed MIME types for file uploads (no SVG due to XSS risk)
+const DEFAULT_ALLOWED_MIME_TYPES = [
+  // Images
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  
+  // Videos
+  'video/mp4',
+  'video/webm',
+  
+  // Audio
+  'audio/mpeg',
+  'audio/wav'
+];
+
+// File size limit from environment (default 10MB)
+const UPLOAD_SIZE_LIMIT = parseInt(process.env.UPLOAD_SIZE_LIMIT || '10485760');
+
+// Magic byte signatures for file type validation
+const MAGIC_BYTES: Record<string, string[]> = {
+  'image/png': ['89504e47'],
+  'image/jpeg': ['ffd8ff'],
+  'image/gif': ['474946383761', '474946383961'], // GIF87a, GIF89a
+  'image/webp': ['52494646'], // RIFF header, further validated below
+  'video/mp4': ['66747970'], // ftyp
+  'video/webm': ['1a45dfa3'] // EBML header
+};
+
 /**
  * File category type - can be any string
  */
@@ -59,6 +89,78 @@ function getFileMetaKey(category: FileCategory, name: string): string {
 
 function getFileSetKey(category: FileCategory): string {
   return `files:${category}`;
+}
+
+/**
+ * Gets the list of allowed MIME types from cache or defaults.
+ */
+export async function getAllowedMimeTypes(): Promise<string[]> {
+  const allowed = await get<string[]>('config:allowedMimeTypes');
+  // Ensure we always return an array
+  if (Array.isArray(allowed) && allowed.length > 0) {
+    return allowed;
+  }
+  return DEFAULT_ALLOWED_MIME_TYPES;
+}
+
+/**
+ * Sets the list of allowed MIME types (ROOT only).
+ */
+export async function setAllowedMimeTypes(mimeTypes: string[]): Promise<void> {
+  await set('config:allowedMimeTypes', mimeTypes);
+}
+
+/**
+ * Validates file content using magic byte signatures.
+ * @param buffer - The raw file data to validate.
+ * @param mimeType - The expected MIME type.
+ * @returns True if the file content matches the expected type.
+ */
+function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
+  if (buffer.length < 4) return false;
+  
+  const hexHeader = buffer.slice(0, 12).toString('hex').toLowerCase();
+  const signatures = MAGIC_BYTES[mimeType];
+  
+  if (!signatures) return false;
+  
+  // Check if file starts with any valid signature
+  for (const sig of signatures) {
+    if (hexHeader.startsWith(sig)) {
+      // Additional validation for WebP (RIFF + WEBP)
+      if (mimeType === 'image/webp') {
+        return hexHeader.startsWith('52494646') && hexHeader.substring(16, 24) === '57454250'; // RIFF....WEBP
+      }
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Validates an uploaded file for security.
+ * @param buffer - The raw file data.
+ * @param mimeType - The detected or claimed MIME type.
+ * @throws Error if validation fails.
+ */
+async function validateUploadFile(buffer: Buffer, mimeType: string): Promise<void> {
+  // Check file size
+  if (buffer.length > UPLOAD_SIZE_LIMIT) {
+    throw new Error(`File too large: ${(buffer.length / 1024 / 1024).toFixed(2)}MB (max: ${(UPLOAD_SIZE_LIMIT / 1024 / 1024).toFixed(0)}MB)`);
+  }
+  
+  // Check MIME type is allowed
+  const allowedTypes = await getAllowedMimeTypes();
+  if (!allowedTypes.includes(mimeType)) {
+    const typeList = Array.isArray(allowedTypes) ? allowedTypes.join(', ') : 'none';
+    throw new Error(`File type '${mimeType}' is not allowed. Allowed types: ${typeList}`);
+  }
+  
+  // Validate magic bytes
+  if (!validateMagicBytes(buffer, mimeType)) {
+    throw new Error(`File content does not match claimed type '${mimeType}'`);
+  }
 }
 
 /**
@@ -231,30 +333,37 @@ async function loadFilesFromDisk(category: FileCategory): Promise<number> {
  * @param category - The file category.
  * @param name - The file name.
  * @param buffer - The raw file data.
+ * @param mimeType - Optional MIME type (detected from filename if not provided).
  */
 export async function uploadFile(
   category: FileCategory,
   name: string,
-  buffer: Buffer
+  buffer: Buffer,
+  mimeType?: string
 ): Promise<FileMeta> {
   ensureFileDir(category);
-  
+
+  // Use provided MIME type or detect from filename
+  const detectedMimeType = mimeType || getMimeType(name);
+
+  // Validate file content and size
+  await validateUploadFile(buffer, detectedMimeType);
+
   const filePath = getFilePath(category, name);
-  const mimeType = getMimeType(name);
   const size = buffer.length;
-  
+
   // Write to disk
   fs.writeFileSync(filePath, buffer);
-  
+
   // Store metadata in Redis
   const meta: FileMeta = {
     name,
     category,
-    mimeType,
+    mimeType: detectedMimeType,
     size,
     uploadedAt: Date.now(),
   };
-  
+
   await set(getFileMetaKey(category, name), meta);
   await sAdd(getFileSetKey(category), name);
 

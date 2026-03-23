@@ -416,12 +416,14 @@ async function listFilesByCategory(
  * @param category - The file category.
  * @param name - The file name.
  * @param base64Data - The base64-encoded file data.
+ * @param mimeType - Optional MIME type (will be detected from filename if not provided).
  */
 async function uploadFile(
   actorSessionToken: string,
   category: FileCategory,
   name: string,
-  base64Data: string
+  base64Data: string,
+  mimeType?: string
 ): Promise<FileMeta> {
   await requireAdminCommand("uploadFile", createAdminContext(actorSessionToken));
 
@@ -436,7 +438,7 @@ async function uploadFile(
     throw new Error("Invalid or empty file data");
   }
 
-  return await files.uploadFile(category, name, buffer);
+  return await files.uploadFile(category, name, buffer, mimeType);
 }
 
 /**
@@ -526,6 +528,29 @@ export const loadState = async (actorSessionToken: string) => {
 
 export { addPacket, getPackets, deletePacket, editPacket, setEnvVar, getSuppressedPrefixes, setSuppressedPrefixes, getCommandRoleRequirements, setCommandRoleRequirement };
 export { listFilesAdmin as listFiles, uploadFile, deleteFile, getCategories, createCategory, deleteCategory };
+
+/**
+ * Gets the list of allowed MIME types for file uploads.
+ */
+export const getAllowedMimeTypes = async (actorSessionToken: string): Promise<string[]> => {
+  await requireAdminCommand("getAllowedMimeTypes", createAdminContext(actorSessionToken));
+  return files.getAllowedMimeTypes();
+};
+
+/**
+ * Sets the list of allowed MIME types for file uploads (ROOT only).
+ */
+export const setAllowedMimeTypes = async (
+  actorSessionToken: string,
+  ...mimeTypes: string[]
+): Promise<void> => {
+  const actor = await auth.getVerifiedActor(actorSessionToken);
+  if (actor.role < Roles.ROOT) {
+    throw new Error("ROOT access required");
+  }
+  return files.setAllowedMimeTypes(mimeTypes);
+};
+
 export const createUser = async (
   actorSessionToken: string,
   osrs_name: string,
@@ -603,6 +628,8 @@ const adminModule = {
   getCategories,
   createCategory,
   deleteCategory,
+  getAllowedMimeTypes,
+  setAllowedMimeTypes,
   getEnvVars,
   setEnvVariable,
 };
@@ -689,12 +716,33 @@ router.post("/call", async (req: Request, res: Response) => {
 
   // Get client IP for rate limiting
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+  
+  // Extract session token for user-based rate limiting
+  const sessionToken = Array.isArray(args) && args.length > 0 && typeof args[0] === 'string' && args[0].length > 32
+    ? args[0]
+    : null;
+  
+  // Determine rate limit key: per-user for authenticated, per-IP for unauthenticated
+  let rateLimitKey = `ip:${clientIp}`;
+  let isLoginAttempt = functionName === 'authenticate';
+  
+  if (!isLoginAttempt && sessionToken) {
+    // Try to get user ID from session for per-user rate limiting
+    try {
+      const userId = await auth.verifySession(sessionToken);
+      if (userId) {
+        rateLimitKey = `user:${userId}`;
+      }
+    } catch {
+      // Invalid session, fall back to IP-based limiting
+    }
+  }
 
   // Apply stricter rate limiting for authentication attempts
-  if (functionName === 'authenticate') {
-    const loginAllowed = await rateLimiter.checkRateLimit(clientIp, 'LOGIN');
+  if (isLoginAttempt) {
+    const loginAllowed = await rateLimiter.checkRateLimit(rateLimitKey, 'LOGIN');
     if (!loginAllowed) {
-      const remaining = await rateLimiter.getRemainingAttempts(clientIp, 'LOGIN');
+      const remaining = await rateLimiter.getRemainingAttempts(rateLimitKey, 'LOGIN');
       return res.status(429).json({
         error: "Too many login attempts",
         retryAfter: remaining
@@ -702,9 +750,9 @@ router.post("/call", async (req: Request, res: Response) => {
     }
   } else {
     // Check rate limit for other API calls
-    const apiAllowed = await rateLimiter.checkRateLimit(clientIp, 'API');
+    const apiAllowed = await rateLimiter.checkRateLimit(rateLimitKey, 'API');
     if (!apiAllowed) {
-      const remaining = await rateLimiter.getRemainingAttempts(clientIp, 'API');
+      const remaining = await rateLimiter.getRemainingAttempts(rateLimitKey, 'API');
       return res.status(429).json({
         error: "Rate limit exceeded",
         retryAfter: remaining
@@ -713,24 +761,37 @@ router.post("/call", async (req: Request, res: Response) => {
   }
 
   const parsedArgs = Array.isArray(args) ? args : [];
-  
-  // Try to get username from session token (first arg) for cleaner logs
+
+  // Extract user info from session token (first arg) for logging
   let userIdentifier = 'anonymous';
-  if (parsedArgs.length > 0 && typeof parsedArgs[0] === 'string') {
+  let logArgs = parsedArgs;
+  
+  if (parsedArgs.length > 0 && typeof parsedArgs[0] === 'string' && parsedArgs[0].length > 32) {
+    // First arg is a session token - resolve user info and exclude from logs
     try {
       const actor = await auth.getVerifiedActor(parsedArgs[0]);
       userIdentifier = actor.osrs_name || actor.disc_name || actor.forum_name || actor.id.slice(0, 8);
     } catch {
       // Invalid session, keep anonymous
     }
+    // Exclude session token from logged args
+    logArgs = parsedArgs.slice(1);
   }
   
-  // Log without the session token (skip first arg if it's a token)
-  const logArgs = parsedArgs.length > 0 && parsedArgs[0]?.length > 32 ? parsedArgs.slice(1) : parsedArgs;
+  // For uploadFile, exclude base64 data from logs (4th arg, index 3)
+  if (functionName === 'uploadFile' && logArgs.length > 3) {
+    logArgs = [logArgs[0], logArgs[1], `<${logArgs[2].length} bytes>`, logArgs[3]];
+  }
+  
   const argsStr = logArgs.length === 0 ? '' : logArgs.map(a => JSON.stringify(a)).join(', ');
+  
+  // Format timestamp as HH:MM:SS
+  const now = new Date();
+  const timeStr = now.toTimeString().split(' ')[0]; // "12:48:04"
+  
   console.log(
     `${colors.gray}[admin/call]${colors.reset} ` +
-    `${colors.blue}${new Date().toISOString()}${colors.reset} ` +
+    `${colors.blue}${timeStr}${colors.reset} ` +
     `${colors.cyan}${userIdentifier}${colors.reset} ` +
     `${colors.green}${functionName}${colors.reset}(${colors.yellow}${argsStr}${colors.reset})`
   );

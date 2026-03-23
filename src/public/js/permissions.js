@@ -43,6 +43,7 @@ const ACTION_PERMISSIONS = {
   deleteFile: ROLES.ADMIN,
   createCategory: ROLES.ADMIN,
   setFavicon: ROLES.ADMIN,
+  setAllowedMimeTypes: ROLES.ROOT,
 
   // Prefixes
   addPrefix: ROLES.ADMIN,
