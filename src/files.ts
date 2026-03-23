@@ -73,11 +73,36 @@ const DEFAULT_CATEGORIES: FileCategory[] = [
 
 /**
  * Gets the disk path for a file.
+ * Validates paths to prevent path traversal attacks.
  * @param category - The file category.
  * @param name - The file name.
+ * @throws Error if path is invalid or attempts traversal.
  */
 function getFilePath(category: FileCategory, name: string): string {
-  return path.join(__dirname, `../data/${category}/${name}`);
+  // Define the base data directory
+  const basePath = path.resolve(__dirname, "../data");
+  
+  // Sanitize category - only allow alphanumeric, dashes, underscores
+  const safeCategory = path.basename(category.toLowerCase());
+  if (!/^[a-z0-9_-]+$/.test(safeCategory)) {
+    throw new Error("Invalid category name");
+  }
+  
+  // Sanitize filename - remove path components
+  const safeName = path.basename(name);
+  if (!safeName || safeName.length > 255) {
+    throw new Error("Invalid file name");
+  }
+  
+  // Build the full path
+  const filePath = path.resolve(basePath, safeCategory, safeName);
+  
+  // CRITICAL: Verify resolved path is still within data directory
+  if (!filePath.startsWith(basePath + path.sep)) {
+    throw new Error("Invalid file path - potential path traversal");
+  }
+  
+  return filePath;
 }
 
 /**

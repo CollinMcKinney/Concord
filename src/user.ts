@@ -527,14 +527,12 @@ async function createUser(
  */
 async function listUsers(actorSessionToken: string): Promise<User[]> {
   const actor = await auth.getVerifiedActor(actorSessionToken);
-  
+
   // Check if actor has required role (MODERATOR+)
   if (actor.role < Roles.MODERATOR) {
     throw new Error("Insufficient role - MODERATOR+ required");
   }
-  
-  const isRoot = actor.role === Roles.ROOT;
-  
+
   const ids = await cache.sMembers("users");
   const userList: User[] = [];
   let rootAlreadyIncluded = false;
@@ -551,12 +549,9 @@ async function listUsers(actorSessionToken: string): Promise<User[]> {
       rootAlreadyIncluded = true;
     }
 
-    // Strip sensitive data for non-ROOT users
-    if (!isRoot) {
-      delete (data as any).hashedPass;
-    }
-
-    userList.push(new User(data));
+    // Sanitize user data - never include hashedPass (use resetPassword instead)
+    const { hashedPass, ...safeData } = data;
+    userList.push(new User(safeData as UserData));
   }
   return userList;
 }
@@ -575,20 +570,18 @@ async function getUser(
   
   // Check if actor has required role (MODERATOR+)
   if (actor.role < Roles.MODERATOR) {
-    throw new Error("Insufficient role - MODERATOR+ required");
+    // Non-MODERATOR users can only view their own data
+    if (actor.id !== targetId) {
+      throw new Error("Insufficient role - can only view your own profile");
+    }
   }
-  
+
   const data = await loadStoredUser(targetId);
   if (!data) return null;
 
-  const isRoot = actor.role === Roles.ROOT;
-
-  // Strip sensitive data for non-ROOT users
-  if (!isRoot) {
-    delete (data as any).hashedPass;
-  }
-
-  return new User(data);
+  // Sanitize user data - never include hashedPass (use resetPassword instead)
+  const { hashedPass, ...safeData } = data;
+  return new User(safeData as UserData);
 }
 
 /**
