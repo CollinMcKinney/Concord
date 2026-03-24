@@ -8,12 +8,7 @@
 }
 
 # Local development with HTTPS (self-signed certificate)
-:443 {
+localhost {
 	tls internal
 	reverse_proxy concord:8080
-}
-
-# HTTP to HTTPS redirect
-:80 {
-	redir https://{host}{uri} permanent
 }

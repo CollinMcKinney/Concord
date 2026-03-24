@@ -1,12 +1,13 @@
 {
-  "typescript.enableTscAutoPath": true,
-  "js/ts.tsdk.path": ".yarn/sdks/typescript/lib",
-  "typescript.tsserver.pluginPaths": [
-    ".yarn/sdks/typescript/lib/tsserver.js"
-  ],
+  "typescript.tsdk": ".yarn/sdks/typescript/lib",
+  "typescript.enablePlugin": true,
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "typescript.suggest.autoImports": "off",
+  "typescript.suggest.paths": false,
+  "typescript.updateImportsOnFileMove.enabled": "off",
   "search.exclude": {
     "**/.yarn": true,
     "**/.pnp.*": true
   },
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }

@@ -18,8 +18,11 @@
     "noUnusedParameters": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "moduleResolution": "nodenext"
+    "moduleResolution": "nodenext",
+    "paths": {
+      "/.pnp.cjs": ["./.pnp.cjs"]
+    }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", ".pnp.*"]
+  "exclude": ["node_modules", "dist"]
 }
