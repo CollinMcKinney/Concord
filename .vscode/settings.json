@@ -1,0 +1,12 @@
+{
+  "typescript.enableTscAutoPath": true,
+  "js/ts.tsdk.path": ".yarn/sdks/typescript/lib",
+  "typescript.tsserver.pluginPaths": [
+    ".yarn/sdks/typescript/lib/tsserver.js"
+  ],
+  "search.exclude": {
+    "**/.yarn": true,
+    "**/.pnp.*": true
+  },
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+}
