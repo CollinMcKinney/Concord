@@ -1,22 +1,24 @@
+import fs from "node:fs";
+import path, { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import express, { Router, Request, Response } from "express";
-import * as auth from "./auth";
-import * as cache from "./cache";
-import * as packets from "./packet";
-import * as user from "./user";
-import * as files from "./files";
-import * as env from "./env";
-import * as rateLimiter from "./rateLimiter";
-import bodyParser from "body-parser";
-import fs from "fs";
-import path from "path";
-import * as permission from "./permission";
-import { Roles, type RoleType } from "./permission";
-import { broadcastSuppressedPrefixesUpdate, broadcastDiscordInviteUrlUpdate } from "./runelite";
-import type { ActorInfo, PacketData, PacketObject, SerializedPacket } from "./packet";
-import type { ActorData } from "./auth";
-import type { CommandRoleRequirementDetails } from "./permission";
-import type { UserData } from "./user";
-import type { FileCategory, FileMeta } from "./files";
+
+import * as auth from "./auth.ts";
+import type { ActorData } from "./auth.ts";
+import * as cache from "./cache.ts";
+import * as env from "./env.ts";
+import * as files from "./files.ts";
+import type { FileCategory, FileMeta } from "./files.ts";
+import * as permission from "./permission.ts";
+import { Roles, type RoleType } from "./permission.ts";
+import type { CommandRoleRequirementDetails } from "./permission.ts";
+import * as packets from "./packet.ts";
+import type { ActorInfo, PacketData, PacketObject, SerializedPacket } from "./packet.ts";
+import { broadcastSuppressedPrefixesUpdate, broadcastDiscordInviteUrlUpdate } from "./runelite.ts";
+import * as rateLimiter from "./rateLimiter.ts";
+import * as user from "./user.ts";
+import type { UserData } from "./user.ts";
 
 // ANSI color codes for console output
 const colors = {
@@ -29,6 +31,8 @@ const colors = {
   red: '\x1b[31m',
 };
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const ENV_FILE = path.join(__dirname, "..", ".env");
 const ENV_KEY_PATTERN = /^[A-Z0-9_]+$/i;
@@ -55,7 +59,7 @@ type AdminCallRequest = { functionName?: unknown; args?: unknown };
 type AdminCommandHandler = (...args: unknown[]) => Promise<unknown>;
 
 const router: Router = express.Router();
-router.use(bodyParser.json());
+router.use(express.json());
 
 /**
  * Ensures the caller meets the provided role requirement.

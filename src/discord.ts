@@ -1,9 +1,8 @@
-import dotenv from "dotenv";
-import { Client, GatewayIntentBits, WebhookClient, Message } from "discord.js";
-import { Packet, packetEvents, addPacket, type PacketObject, type SerializedPacket } from "./packet";
-import { broadcast } from "./runelite";
+import "dotenv/config";
+import { Client, GatewayIntentBits, Message, WebhookClient } from "discord.js";
 
-dotenv.config();
+import { Packet, packetEvents, addPacket, type PacketObject, type SerializedPacket } from "./packet.ts";
+import { broadcast } from "./runelite.ts";
 
 // ANSI color codes for console output
 const colors = {
@@ -118,7 +117,11 @@ packetEvents.on("packetAdded", async (packetJson: Packet | SerializedPacket) => 
 });
 
 // ---------------- Startup ----------------
-async function startBot(): Promise<void> {
+/**
+ * Initializes and starts the Discord bot.
+ * Sets up event listeners and logs in to Discord.
+ */
+export async function initDiscord(): Promise<void> {
   const token = process.env.BOT_TOKEN;
 
   bot.once("clientReady", () => {
@@ -127,5 +130,3 @@ async function startBot(): Promise<void> {
 
   await bot.login(token).catch(console.error);
 }
-
-startBot();

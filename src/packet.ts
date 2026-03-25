@@ -1,7 +1,9 @@
-import * as cache from "./cache";
-import { v4 as uuidv4 } from "uuid";
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
+
 import "dotenv/config";
+import { v4 as uuidv4 } from "uuid";
+
+import * as cache from "./cache.ts";
 
 /**
  * Primitive JSON values allowed inside packet payloads and metadata.
@@ -18,7 +20,7 @@ interface PacketObject {
   [key: string]: PacketValue | undefined;
 }
 
-import { getRootCredentials } from "./user";
+import { getRootCredentials } from "./user.js";
 
 /**
  * Event emitter used to fan out packet lifecycle updates across services.

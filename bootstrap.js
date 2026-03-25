@@ -12,9 +12,9 @@
  *   Container: node bootstrap.js (auto-detected)
  */
 
-const { execSync, spawn } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import { execSync, spawn } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // ============================================================================
 // Environment Detection

@@ -1,11 +1,12 @@
-import WebSocket, { Server as WebSocketServer } from "ws";
-import http from "http";
-import { Packet, persistPacket } from "./packet";
-import { createGuestSession, updateUserOsrsName, getRootCredentials } from "./user";
-import * as rateLimiter from "./rateLimiter";
-import * as permission from "./permission";
-import * as auth from "./auth";
-import type { PacketValue, SerializedPacket } from "./packet";
+import http from "node:http";
+
+import WebSocket, { WebSocketServer } from "ws";
+
+import * as auth from "./auth.ts";
+import { Packet, persistPacket, type PacketValue, type SerializedPacket } from "./packet.ts";
+import * as permission from "./permission.ts";
+import * as rateLimiter from "./rateLimiter.ts";
+import { createGuestSession, getRootCredentials, updateUserOsrsName } from "./user.ts";
 
 // ANSI color codes for console output
 const colors = {

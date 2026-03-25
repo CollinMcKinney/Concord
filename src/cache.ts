@@ -1,6 +1,11 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { createClient, RedisClientType } from "redis";
-import fs from "fs";
-import path from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Redis `SET` options accepted by the underlying client.

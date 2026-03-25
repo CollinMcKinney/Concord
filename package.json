@@ -11,9 +11,9 @@
     "dev:watch": "yarn dlx tsx watch src/server.ts"
   },
   "keywords": [],
-  "author": "",
+  "author": "Collin McKinney <collinmckinney4@gmail.com>",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "argon2": "^0.44.0",
     "body-parser": "^2.2.2",
@@ -33,9 +33,6 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.19.1",
     "typescript": "^6.0.2"
-  },
-  "resolutions": {
-    "undici": "^6.24.0"
   },
   "packageManager": "yarn@4.13.0"
 }

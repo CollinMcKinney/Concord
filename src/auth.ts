@@ -1,7 +1,8 @@
 import crypto from "crypto";
-import * as cache from "./cache";
-import { Roles, type RoleType } from "./permission";
-import { User } from "./user";
+
+import * as cache from "./cache.ts";
+import { Roles, type RoleType } from "./permission.ts";
+import { User } from "./user.ts";
 
 // ANSI color codes for console output
 const colors = {
@@ -60,7 +61,7 @@ async function register(
   forum_name: string,
   hashedPass: string
 ): Promise<ActorData> {
-  const users = await import("./user");
+  const users = await import("./user.ts");
   return users.createUserInternal(osrs_name, disc_name, forum_name, Roles.MEMBER, hashedPass);
 }
 

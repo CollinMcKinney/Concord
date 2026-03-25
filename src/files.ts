@@ -1,6 +1,11 @@
-import fs from "fs";
-import path from "path";
-import { sAdd, sMembers, sRem, set, get, del, exists } from "./cache";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { sAdd, sMembers, sRem, set, get, del, exists } from "./cache.ts";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ANSI color codes for console output
 const colors = {

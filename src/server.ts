@@ -1,20 +1,26 @@
-import dotenv from "dotenv";
-dotenv.config({ quiet: true });
+import http from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import express, { Express } from "express";
-import bodyParser from "body-parser";
-import path from "path";
-import http from "http";
+import "dotenv/config";
+import express from "express";
 import helmet from "helmet";
-import { initStorage, saveState, loadState, startAutoSaveDynamic } from "./cache";
-import { initializeRoot } from "./user";
-import { attachToServer, broadcast } from "./runelite";
-import adminRouter from "./admin";
-import filesRouter from "./filesRouter";
-import { initFiles } from "./files";
-import { initRateLimiter } from "./rateLimiter";
-import "./discord"; // auto-start Discord integrations
-import { Packet, type SerializedPacket } from "./packet";
+
+import { initDiscord } from "./discord.ts";
+import { initStorage, saveState, loadState, startAutoSaveDynamic } from "./cache.ts";
+import { initFiles } from "./files.ts";
+import filesRouter from "./filesRouter.ts";
+import { Packet, type SerializedPacket } from "./packet.ts";
+import { attachToServer, broadcast } from "./runelite.ts";
+import { initializeRoot } from "./user.ts";
+import { initRateLimiter } from "./rateLimiter.ts";
+
+import adminRouter from "./admin.ts";
+
+type Express = express.Express;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ANSI color codes for console output
 const colors = {
@@ -50,8 +56,8 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false, // Allow loading resources without CORS
 }));
 
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Serve static files from public folder (but not index.html - that's handled by /admin route)
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
@@ -89,6 +95,7 @@ async function start(): Promise<void> {
   await initializeRoot();
   await initFiles(); // Load files from disk into cache
   await initRateLimiter(); // Initialize rate limiter
+  await initDiscord(); // Start Discord bot
   startAutoSaveDynamic();
   await saveState();
 

@@ -1,4 +1,4 @@
-import * as cache from "./cache";
+import * as cache from "./cache.ts";
 
 /**
  * Numeric role hierarchy used for authorization checks throughout the service.
