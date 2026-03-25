@@ -10,6 +10,17 @@ import { getRootCredentials } from "./user.ts";
  * Primitive JSON values allowed inside packet payloads and metadata.
  */
 type PacketPrimitive = string | number | boolean | null;
+/**
+ * Recursive JSON-like value used across packet payloads and metadata.
+ */
+type PacketValue = PacketPrimitive | PacketObject | PacketValue[];
+/**
+ * JSON-like object used for packet payloads and metadata.
+ */
+interface PacketObject {
+  [key: string]: PacketValue | undefined;
+}
+
 
 /**
  * Event emitter used to fan out packet lifecycle updates across services.
