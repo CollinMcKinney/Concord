@@ -1,10 +1,12 @@
 import crypto from "crypto";
-import * as cache from "./cache";
-import * as auth from "./auth";
-import { type ActorData, type SessionData, SESSION_TTL_HOURS } from "./auth";
-import * as permission from "./permission";
-import { Roles, type RoleType } from "./permission";
+
 import argon2 from "argon2";
+
+import * as auth from "./auth.ts";
+import { type ActorData, type SessionData, SESSION_TTL_HOURS, updateSessionTTL } from "./auth.ts";
+import * as cache from "./cache.ts";
+import * as permission from "./permission.ts";
+import { Roles, type RoleType } from "./permission.ts";
 
 // ANSI color codes for console output
 const colors = {
@@ -815,5 +817,6 @@ export {
   deleteUser,
   changePassword,
   resetPassword,
+  updateSessionTTL,
   type UserData
 };

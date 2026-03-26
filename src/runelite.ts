@@ -1,11 +1,12 @@
-import WebSocket, { Server as WebSocketServer } from "ws";
-import http from "http";
-import { Packet, persistPacket } from "./packet";
-import { createGuestSession, updateUserOsrsName, getRootCredentials } from "./user";
-import * as rateLimiter from "./rateLimiter";
-import * as permission from "./permission";
-import * as auth from "./auth";
-import type { PacketValue, SerializedPacket } from "./packet";
+import http from "node:http";
+
+import WebSocket, { WebSocketServer } from "ws";
+
+import * as auth from "./auth.ts";
+import { Packet, persistPacket, type PacketValue, type SerializedPacket } from "./packet.ts";
+import * as permission from "./permission.ts";
+import * as limits from "./limits.ts";
+import { createGuestSession, getRootCredentials, updateUserOsrsName } from "./user.ts";
 
 // ANSI color codes for console output
 const colors = {
@@ -16,10 +17,10 @@ const colors = {
   red: '\x1b[31m',
 };
 
-// WebSocket rate limiting (from rateLimiter config)
-const WS_MAX_CONNECTIONS_PER_IP = rateLimiter.WS_RATE_LIMITS.MAX_CONNECTIONS;
-const WS_MAX_MESSAGES_PER_SECOND = rateLimiter.WS_RATE_LIMITS.MAX_MESSAGES_PER_SECOND;
-const WS_MAX_PAYLOAD_SIZE = rateLimiter.WS_RATE_LIMITS.MAX_PAYLOAD_SIZE;
+// WebSocket rate limiting (from limits config)
+const WS_MAX_CONNECTIONS_PER_IP = limits.WS_RATE_LIMITS.MAX_CONNECTIONS;
+const WS_MAX_MESSAGES_PER_SECOND = limits.WS_RATE_LIMITS.MAX_MESSAGES_PER_SECOND;
+const WS_MAX_PAYLOAD_SIZE = limits.WS_RATE_LIMITS.MAX_PAYLOAD_SIZE;
 
 // Connection tracking for rate limiting
 const connectionCounts = new Map<string, number>();
@@ -185,7 +186,7 @@ function attachToServer(httpServer: http.Server): WebSocketServer {
             `${colors.cyan}[runelite]${colors.reset} Updated guest profile for ${colors.cyan}${packet.actor.name || packet.data.osrsName || "Unknown"}${colors.reset}`
           );
         } else {
-          console.log(`${colors.cyan}[runelite]${colors.reset} Received packet from ${colors.cyan}${packet.actor.name}${colors.reset}: "${colors.yellow}${packet.data.body || ""}${colors.reset}"`);
+          console.log(`${colors.cyan}[runelite]${colors.reset} Runelite -> Concord ${colors.cyan}${packet.actor.name}${colors.reset}: "${colors.yellow}${packet.data.body || ""}${colors.reset}"`);
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unknown WebSocket error";

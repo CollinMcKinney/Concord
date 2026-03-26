@@ -1,7 +1,9 @@
 import crypto from "crypto";
-import * as cache from "./cache";
-import { Roles, type RoleType } from "./permission";
-import { User } from "./user";
+
+import * as cache from "./cache.ts";
+import { Roles, type RoleType } from "./permission.ts";
+import { User } from "./user.ts";
+import { getLimitsConfig } from "./limits.ts";
 
 // ANSI color codes for console output
 const colors = {
@@ -12,12 +14,15 @@ const colors = {
   red: '\x1b[31m',
 };
 
-/**
- * Session time to live (TTL) in hours. Default: 24 hours.
- * Can be configured via SESSION_TTL_HOURS environment variable.
- */
-const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS || "24");
-const SESSION_TTL_MS = SESSION_TTL_HOURS * 60 * 60 * 1000;
+// Session TTL loaded from cache
+let SESSION_TTL_HOURS = 24;
+let SESSION_TTL_MS = SESSION_TTL_HOURS * 60 * 60 * 1000;
+
+export async function updateSessionTTL(): Promise<void> {
+  const config = await getLimitsConfig();
+  SESSION_TTL_HOURS = parseInt(config.SESSION_TTL_HOURS) || 24;
+  SESSION_TTL_MS = SESSION_TTL_HOURS * 60 * 60 * 1000;
+}
 
 /**
  * Hashes a raw session token before it is stored or looked up in Redis.
@@ -48,6 +53,13 @@ interface SessionData {
 }
 
 /**
+ * Get session TTL in milliseconds (calculated from current runtime config)
+ */
+function getSessionTTLMS(): number {
+  return SESSION_TTL_HOURS * 60 * 60 * 1000;
+}
+
+/**
  * Creates a new member account directly from registration details.
  * @param osrs_name - The user's in-game RuneScape name to store on the new account.
  * @param disc_name - The Discord handle to associate with the account.
@@ -60,7 +72,7 @@ async function register(
   forum_name: string,
   hashedPass: string
 ): Promise<ActorData> {
-  const users = await import("./user");
+  const users = await import("./user.ts");
   return users.createUserInternal(osrs_name, disc_name, forum_name, Roles.MEMBER, hashedPass);
 }
 
@@ -131,7 +143,7 @@ async function authenticate(identifier: string, password: string): Promise<strin
   const newSession: SessionData = {
     userId,
     created: Date.now(),
-    expires: Date.now() + SESSION_TTL_MS
+    expires: Date.now() + getSessionTTLMS()
   };
 
   await cache.set(`session:${sessionTokenHash}`, newSession);

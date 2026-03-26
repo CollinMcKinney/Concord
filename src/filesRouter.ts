@@ -1,7 +1,9 @@
-import express, { Router, Request, Response } from "express";
-import * as files from "./files";
-import * as auth from "./auth";
-import type { FileCategory, FileMeta } from "./files";
+import express from "express";
+import type { Router, Request, Response } from "express";
+
+import * as auth from "./auth.ts";
+import * as files from "./files.ts";
+import type { FileCategory, FileMeta } from "./files.ts";
 
 const router: Router = express.Router();
 
@@ -148,12 +150,12 @@ router.post("/categories", requireAuth, requireRole(Roles.ADMIN), async (req: Re
  */
 router.delete("/categories/:name", requireAuth, requireRole(Roles.ADMIN), async (req: Request, res: Response): Promise<void> => {
   try {
-    const category = validateCategory(req.params.name);
+    const category = validateCategory(req.params.name as string);
     if (!category) {
       res.status(400).json({ error: "Invalid category name" });
       return;
     }
-    
+
     await files.deleteCategory(category);
     res.json({ success: true });
   } catch (err: unknown) {
@@ -201,7 +203,7 @@ router.post("/favicon", requireAuth, requireRole(Roles.ADMIN), async (req: Reque
  * GET /files/:category - List all files in a category
  */
 router.get("/:category", async (req: Request, res: Response): Promise<void> => {
-  const category = validateCategory(req.params.category);
+  const category = validateCategory(req.params.category as string);
 
   if (!category) {
     res.status(400).json({ error: "Invalid category" });
@@ -230,14 +232,14 @@ router.get("/:category", async (req: Request, res: Response): Promise<void> => {
  * GET /files/:category/:name - Serve a single file
  */
 router.get("/:category/:name", async (req: Request, res: Response): Promise<void> => {
-  const category = validateCategory(req.params.category);
+  const category = validateCategory(req.params.category as string);
 
   if (!category) {
     res.status(400).json({ error: "Invalid category" });
     return;
   }
 
-  const sanitizedName = sanitizeFileName(req.params.name);
+  const sanitizedName = sanitizeFileName(req.params.name as string);
 
   if (!sanitizedName) {
     res.status(400).json({ error: "Invalid file name" });
