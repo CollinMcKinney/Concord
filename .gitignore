@@ -5,16 +5,25 @@ node_modules/
 *.tsbuildinfo
 dist/
 
-# Yarn Berry / PnP
-.pnp.cjs
-.pnp.loader.mjs
-.yarn/*
-.yarn/build-state.yml
-.yarn/install-state.gz
+# Yarn Berry / PnP (Zero Install)
+# Commit PnP files
+!.pnp.cjs
+!.pnp.loader.mjs
+!.pnp.*.cjs
+!.pnp.*.mjs
+
+# Yarn cache - commit for Zero Install (may contain multiple architectures)
 !.yarn/cache/
 !.yarn/releases/
-!.yarn/sdks
+!.yarn/sdks/
 !.yarn/unplugged/
+
+# State files - optional, can be committed for faster installs
+!.yarn/build-state.yml
+!.yarn/install-state.gz
+
+# Ignore local yarn data
+.yarn/data/
 
 # Yarn lock (optional - commit if you want reproducible builds)
 yarn.lock
