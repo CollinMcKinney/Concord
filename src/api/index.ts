@@ -8,7 +8,7 @@ import type { Router, Request, Response } from "express";
 import * as auth from "../auth.ts";
 import type { ActorData } from "../auth.ts";
 import * as cache from "../cache.ts";
-import { Roles, type RoleType, getRequiredRoleForCommand } from "../permission.ts";
+import { Roles, type RoleType, getMinimumRoleForCommand } from "../permission.ts";
 import * as limits from "../limits.ts";
 import * as user from "../user.ts";
 import type { UserData } from "../user.ts";
@@ -58,7 +58,7 @@ apiRouter.use(express.json());
  * For commands that allow anonymous access, pass an empty session token.
  */
 async function checkCommandAccess(commandName: string, actorSessionToken: string): Promise<ApiActor> {
-  const minimumRole = await getRequiredRoleForCommand(commandName);
+  const minimumRole = await getMinimumRoleForCommand(commandName);
 
   // If no role required, allow anonymous access
   if (minimumRole == null) {
@@ -73,188 +73,59 @@ async function checkCommandAccess(commandName: string, actorSessionToken: string
   return auth.requireRole(actorSessionToken, minimumRole);
 }
 
+/**
+ * Wraps a function with automatic access checking.
+ * The first parameter of the wrapped function must be the session token.
+ */
+function apiCommand<T extends (sessionToken: string, ...args: any[]) => any>(
+  commandName: string,
+  fn: T
+): T {
+  return (async (sessionToken: string, ...args: any[]) => {
+    await checkCommandAccess(commandName, sessionToken || "");
+    return fn(sessionToken, ...args);
+  }) as T;
+}
+
 // ============================================================================
 // Auth Exports
 // ============================================================================
 
-export const authenticate = async (
-  identifier: string,
-  password: string
-) => {
-  // authenticate() allows anonymous access (no session token needed)
-  await checkCommandAccess("authenticate", "");
-  return auth.authenticate(identifier, password);
-};
-
-export const verifySession = async (
-  sessionToken: string
-) => {
-  // verifySession() allows anonymous access (just validates the token)
-  await checkCommandAccess("verifySession", sessionToken || "");
-  return auth.verifySession(sessionToken);
-};
-
+export const authenticate = apiCommand("authenticate", auth.authenticate);
+export const verifySession = apiCommand("verifySession", auth.verifySession);
 
 // ============================================================================
 // Cache Exports
 // ============================================================================
 
-export const saveState = async (actorSessionToken: string) => {
-  await checkCommandAccess("saveState", actorSessionToken);
-  return cache.saveState();
-};
-
-export const loadState = async (actorSessionToken: string) => {
-  await checkCommandAccess("loadState", actorSessionToken);
-  return cache.loadState();
-};
+export const saveState = apiCommand("saveState", cache.saveState);
+export const loadState = apiCommand("loadState", cache.loadState);
 
 // ============================================================================
 // Packet Management Exports
 // ============================================================================
 
-export const addPacket = (
-  actorSessionToken: string,
-  body: string,
-  actorDetails: Partial<import("../packet.ts").ActorInfo> = {},
-  origin = "Concord",
-  data: import("../packet.ts").PacketData = {},
-  meta: import("../packet.ts").PacketObject = {}
-): Promise<boolean> => {
-  const requireAuth = () => checkCommandAccess("addPacket", actorSessionToken);
-  return packets.addPacket(requireAuth, actorSessionToken, body, actorDetails, origin, data, meta);
-};
-
-export const getPackets = (
-  actorSessionToken: string,
-  limit = 50
-): Promise<import("../packet.ts").SerializedPacket[]> => {
-  const requireAuth = () => checkCommandAccess("getPackets", actorSessionToken);
-  return packets.getPackets(requireAuth, limit);
-};
-
-export const deletePacket = (
-  actorSessionToken: string,
-  packetId: string
-): Promise<boolean> => {
-  const requireAuth = () => checkCommandAccess("deletePacket", actorSessionToken);
-  return packets.deletePacket(requireAuth, packetId);
-};
-
-export const editPacket = (
-  actorSessionToken: string,
-  packetId: string,
-  newContent: string
-): Promise<boolean> => {
-  const requireAuth = () => checkCommandAccess("editPacket", actorSessionToken);
-  return packets.editPacket(requireAuth, packetId, newContent);
-};
-
-export const getSuppressedPrefixes = (
-  actorSessionToken: string
-): Promise<string[]> => {
-  const requireAuth = () => checkCommandAccess("getSuppressedPrefixes", actorSessionToken);
-  return packets.getSuppressedPrefixes(requireAuth);
-};
-
-export const setSuppressedPrefixes = (
-  actorSessionToken: string,
-  prefixes: string[]
-): Promise<string[]> => {
-  const requireAuth = () => checkCommandAccess("setSuppressedPrefixes", actorSessionToken);
-  return packets.setSuppressedPrefixes(requireAuth, prefixes);
-};
-
-export const getCommandRoleRequirements = (
-  actorSessionToken: string
-): Promise<Record<string, import("../permission.ts").CommandRoleRequirementDetails>> => {
-  const requireAuth = () => checkCommandAccess("getCommandRoleRequirements", actorSessionToken);
-  return packets.getCommandRoleRequirements(requireAuth);
-};
-
-export const setCommandRoleRequirement = (
-  actorSessionToken: string,
-  commandName: string,
-  role: string | number | null
-): Promise<{ commandName: string; roleValue: RoleType | null; roleName: string }> => {
-  const requireAuth = () => checkCommandAccess("setCommandRoleRequirement", actorSessionToken);
-  return packets.setCommandRoleRequirement(requireAuth, commandName, role);
-};
+export const addPacket = apiCommand("addPacket", packets.addPacket);
+export const getPackets = apiCommand("getPackets", packets.getPackets);
+export const deletePacket = apiCommand("deletePacket", packets.deletePacket);
+export const editPacket = apiCommand("editPacket", packets.editPacket);
+export const getSuppressedPrefixes = apiCommand("getSuppressedPrefixes", packets.getSuppressedPrefixes);
+export const setSuppressedPrefixes = apiCommand("setSuppressedPrefixes", packets.setSuppressedPrefixes);
+export const getCommandRoleRequirements = apiCommand("getCommandRoleRequirements", packets.getCommandRoleRequirements);
+export const setCommandRoleRequirement = apiCommand("setCommandRoleRequirement", packets.setCommandRoleRequirement);
 
 // ============================================================================
 // File Management Exports
 // ============================================================================
 
-export const listFiles = (
-  actorSessionToken: string
-): Promise<Record<import("../files.ts").FileCategory, import("../files.ts").FileMeta[]>> => {
-  const requireAuth = () => checkCommandAccess("listFiles", actorSessionToken);
-  return files.listFiles(requireAuth);
-};
-
-export const uploadFile = (
-  actorSessionToken: string,
-  category: import("../files.ts").FileCategory,
-  name: string,
-  base64Data: string,
-  mimeType?: string
-): Promise<import("../files.ts").FileMeta> => {
-  const requireAuth = () => checkCommandAccess("uploadFile", actorSessionToken);
-  return files.uploadFile(requireAuth, category, name, base64Data, mimeType);
-};
-
-export const deleteFile = (
-  actorSessionToken: string,
-  category: import("../files.ts").FileCategory,
-  name: string
-): Promise<boolean> => {
-  const requireAuth = () => checkCommandAccess("deleteFile", actorSessionToken);
-  return files.deleteFile(requireAuth, category, name);
-};
-
-export const getCategories = (
-  actorSessionToken: string
-): Promise<import("../files.ts").FileCategory[]> => {
-  const requireAuth = () => checkCommandAccess("getCategories", actorSessionToken);
-  return files.getCategories(requireAuth);
-};
-
-export const createCategory = (
-  actorSessionToken: string,
-  name: string
-): Promise<import("../files.ts").FileCategory> => {
-  const requireAuth = () => checkCommandAccess("createCategory", actorSessionToken);
-  return files.createCategory(requireAuth, name);
-};
-
-export const deleteCategory = (
-  actorSessionToken: string,
-  name: string
-): Promise<boolean> => {
-  const requireAuth = () => checkCommandAccess("deleteCategory", actorSessionToken);
-  return files.deleteCategory(requireAuth, name);
-};
-
-export const getAllowedMimeTypes = (
-  actorSessionToken: string
-): Promise<string[]> => {
-  const requireAuth = () => checkCommandAccess("getAllowedMimeTypes", actorSessionToken);
-  return files.getAllowedMimeTypes(requireAuth);
-};
-
-export const setAllowedMimeTypes = (
-  actorSessionToken: string,
-  ...mimeTypes: string[]
-): Promise<void> => {
-  const requireAuth = () => checkCommandAccess("setAllowedMimeTypes", actorSessionToken);
-  const requireRoot = async () => {
-    const actor = await auth.getVerifiedActor(actorSessionToken);
-    if (actor.role < Roles.ROOT) {
-      throw new Error("ROOT access required");
-    }
-  };
-  return files.setAllowedMimeTypes(requireAuth, requireRoot, ...mimeTypes);
-};
+export const listFiles = apiCommand("listFiles", files.listFiles);
+export const uploadFile = apiCommand("uploadFile", files.uploadFile);
+export const deleteFile = apiCommand("deleteFile", files.deleteFile);
+export const getCategories = apiCommand("getCategories", files.getCategories);
+export const createCategory = apiCommand("createCategory", files.createCategory);
+export const deleteCategory = apiCommand("deleteCategory", files.deleteCategory);
+export const getAllowedMimeTypes = apiCommand("getAllowedMimeTypes", files.getAllowedMimeTypes);
+export const setAllowedMimeTypes = apiCommand("setAllowedMimeTypes", files.setAllowedMimeTypes);
 
 // ============================================================================
 // User Management Exports

@@ -4,46 +4,19 @@ import type { FileCategory, FileMeta } from "../files.ts";
 /**
  * Lists all files across all categories.
  */
-export async function listFiles(
-  requireAuth: () => Promise<unknown>
-): Promise<Record<FileCategory, FileMeta[]>> {
-  await requireAuth();
+export async function listFiles(): Promise<Record<FileCategory, FileMeta[]>> {
   return files.listAllFiles();
-}
-
-/**
- * Lists all files in a specific category.
- */
-export async function listFilesByCategory(
-  requireAuth: () => Promise<unknown>,
-  category: FileCategory
-): Promise<FileMeta[]> {
-  await requireAuth();
-  const fileList = await files.listFiles(category);
-  const metadata: FileMeta[] = [];
-
-  for (const name of fileList) {
-    const meta = await files.getFileMeta(category, name);
-    if (meta) {
-      metadata.push(meta);
-    }
-  }
-
-  return metadata;
 }
 
 /**
  * Uploads a file to disk from base64-encoded data.
  */
 export async function uploadFile(
-  requireAuth: () => Promise<unknown>,
   category: FileCategory,
   name: string,
   base64Data: string,
   mimeType?: string
 ): Promise<FileMeta> {
-  await requireAuth();
-
   // Validate category name format
   if (!/^[a-z0-9_-]+$/.test(category)) {
     throw new Error("Invalid category name. Use only lowercase letters, numbers, dashes, and underscores.");
@@ -62,12 +35,9 @@ export async function uploadFile(
  * Deletes a file from disk and cache.
  */
 export async function deleteFile(
-  requireAuth: () => Promise<unknown>,
   category: FileCategory,
   name: string
 ): Promise<boolean> {
-  await requireAuth();
-
   // Validate category
   const validCategories: FileCategory[] = await files.getCategories();
   if (!validCategories.includes(category)) {
@@ -80,54 +50,35 @@ export async function deleteFile(
 /**
  * Lists all file categories.
  */
-export async function getCategories(
-  requireAuth: () => Promise<unknown>
-): Promise<FileCategory[]> {
-  await requireAuth();
+export async function getCategories(): Promise<FileCategory[]> {
   return files.getCategories();
 }
 
 /**
  * Creates a new file category.
  */
-export async function createCategory(
-  requireAuth: () => Promise<unknown>,
-  name: string
-): Promise<FileCategory> {
-  await requireAuth();
+export async function createCategory(name: string): Promise<FileCategory> {
   return files.createCategory(name);
 }
 
 /**
  * Deletes a file category.
  */
-export async function deleteCategory(
-  requireAuth: () => Promise<unknown>,
-  name: string
-): Promise<boolean> {
-  await requireAuth();
+export async function deleteCategory(name: string): Promise<boolean> {
   return files.deleteCategory(name);
 }
 
 /**
  * Gets the list of allowed MIME types for file uploads.
  */
-export async function getAllowedMimeTypes(
-  requireAuth: () => Promise<unknown>
-): Promise<string[]> {
-  await requireAuth();
+export async function getAllowedMimeTypes(): Promise<string[]> {
   return files.getAllowedMimeTypes();
 }
 
 /**
  * Sets the list of allowed MIME types for file uploads (ROOT only).
+ * Note: ROOT check is handled by permission system, not here.
  */
-export async function setAllowedMimeTypes(
-  requireAuth: () => Promise<unknown>,
-  requireRoot: () => Promise<void>,
-  ...mimeTypes: string[]
-): Promise<void> {
-  await requireAuth();
-  await requireRoot();
+export async function setAllowedMimeTypes(...mimeTypes: string[]): Promise<void> {
   return files.setAllowedMimeTypes(mimeTypes);
 }

@@ -54,7 +54,6 @@ async function resolveActorName(actorId: string | null, actorDetails: Partial<Ac
  * Creates and persists a chat packet through the admin API.
  */
 export async function addPacket(
-  requireAuth: () => Promise<unknown>,
   actorSessionToken: string,
   body: string,
   actorDetails: Partial<ActorInfo> = {},
@@ -62,11 +61,10 @@ export async function addPacket(
   data: PacketData = {},
   meta: PacketObject = {}
 ): Promise<boolean> {
-  await requireAuth();
   const packet = await buildAdminPacket(actorSessionToken, body, actorDetails, origin, data, meta);
 
   console.log(
-    `[admin.addPacket] ${new Date().toISOString()} packetId=${packet.id} origin=${packet.origin} body=${JSON.stringify(
+    `[api.addPacket] ${new Date().toISOString()} packetId=${packet.id} origin=${packet.origin} body=${JSON.stringify(
       packet.data.body
     )}`
   );
@@ -77,10 +75,9 @@ export async function addPacket(
  * Returns recent packets for an authorized admin actor.
  */
 export async function getPackets(
-  requireAuth: () => Promise<unknown>,
+  actorSessionToken: string,
   limit = 50
 ): Promise<SerializedPacket[]> {
-  await requireAuth();
   return packets.getPackets(limit);
 }
 
@@ -88,10 +85,9 @@ export async function getPackets(
  * Marks a packet as deleted through the admin API.
  */
 export async function deletePacket(
-  requireAuth: () => Promise<unknown>,
+  actorSessionToken: string,
   packetId: string
 ): Promise<boolean> {
-  await requireAuth();
   return packets.deletePacket(packetId);
 }
 
@@ -99,11 +95,10 @@ export async function deletePacket(
  * Updates an existing packet's content through the admin API.
  */
 export async function editPacket(
-  requireAuth: () => Promise<unknown>,
+  actorSessionToken: string,
   packetId: string,
   newContent: string
 ): Promise<boolean> {
-  await requireAuth();
   return packets.editPacket(packetId, newContent);
 }
 
@@ -111,9 +106,8 @@ export async function editPacket(
  * Returns the configured RuneLite message suppression prefixes.
  */
 export async function getSuppressedPrefixes(
-  requireAuth: () => Promise<unknown>
+  actorSessionToken: string
 ): Promise<string[]> {
-  await requireAuth();
   return permission.getSuppressedPrefixes();
 }
 
@@ -121,10 +115,9 @@ export async function getSuppressedPrefixes(
  * Replaces the configured RuneLite message suppression prefixes.
  */
 export async function setSuppressedPrefixes(
-  requireAuth: () => Promise<unknown>,
+  actorSessionToken: string,
   prefixes: string[]
 ): Promise<string[]> {
-  await requireAuth();
   const updatedPrefixes = await permission.setSuppressedPrefixes(prefixes);
   broadcastSuppressedPrefixesUpdate(updatedPrefixes);
   return updatedPrefixes;
@@ -134,9 +127,8 @@ export async function setSuppressedPrefixes(
  * Returns the effective role requirement for each admin command.
  */
 export async function getCommandRoleRequirements(
-  requireAuth: () => Promise<unknown>
+  actorSessionToken: string
 ): Promise<Record<string, CommandRoleRequirementDetails>> {
-  await requireAuth();
   return permission.getCommandRoleRequirements();
 }
 
@@ -144,10 +136,9 @@ export async function getCommandRoleRequirements(
  * Overrides the configured role requirement for a specific admin command.
  */
 export async function setCommandRoleRequirement(
-  requireAuth: () => Promise<unknown>,
+  actorSessionToken: string,
   commandName: string,
   role: string | number | null
 ): Promise<{ commandName: string; roleValue: import("../permission.ts").RoleType | null; roleName: string }> {
-  await requireAuth();
   return permission.setCommandRoleRequirement(commandName, role);
 }

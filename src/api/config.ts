@@ -4,15 +4,12 @@ import * as limits from "../limits.ts";
 /**
  * Gets Discord connection status and configuration.
  */
-export async function getDiscordStatus(
-  requireAuth: () => Promise<unknown>
-): Promise<{
+export async function getDiscordStatus(): Promise<{
   isConnected: boolean;
   isConfigured: boolean;
   botTag?: string;
   channelId?: string;
 }> {
-  await requireAuth();
   return discord.getDiscordStatus();
 }
 
@@ -20,7 +17,6 @@ export async function getDiscordStatus(
  * Updates Discord configuration.
  */
 export async function updateDiscordConfig(
-  requireAuth: () => Promise<unknown>,
   config: {
     botToken?: string;
     channelId?: string;
@@ -33,47 +29,33 @@ export async function updateDiscordConfig(
   },
   autoConnect?: boolean
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAuth();
   return discord.updateDiscordConfig(config, autoConnect);
 }
 
 /**
  * Starts Discord bot connection.
  */
-export async function startDiscord(
-  requireAuth: () => Promise<unknown>
-): Promise<{ success: boolean; error?: string }> {
-  await requireAuth();
+export async function startDiscord(): Promise<{ success: boolean; error?: string }> {
   return discord.startDiscord();
 }
 
 /**
  * Stops Discord bot connection.
  */
-export async function stopDiscord(
-  requireAuth: () => Promise<unknown>
-): Promise<void> {
-  await requireAuth();
-  await discord.stopDiscord();
+export async function stopDiscord(): Promise<void> {
+  return discord.stopDiscord();
 }
 
 /**
  * Gets all runtime limits configuration.
  */
-export async function getAllLimits(
-  requireAuth: () => Promise<unknown>
-): Promise<Array<object>> {
-  await requireAuth();
+export async function getAllLimits(): Promise<Array<object>> {
   return limits.getAllLimits();
 }
 
 /**
  * Updates runtime limits configuration.
  */
-export async function updateLimits(
-  requireAuth: () => Promise<unknown>,
-  config: Record<string, string>
-): Promise<{ success: boolean; error?: string }> {
-  await requireAuth();
+export async function updateLimits(config: Record<string, string>): Promise<{ success: boolean; error?: string }> {
   return limits.saveLimitsConfig(config);
 }

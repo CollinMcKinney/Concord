@@ -227,7 +227,7 @@ async function getCommandRoleRequirements(): Promise<Record<string, CommandRoleR
  * @param commandName - The admin command identifier whose effective minimum role should be resolved.
  * @returns A promise that resolves to the required RoleType or null for open access.
  */
-async function getRequiredRoleForCommand(commandName: string): Promise<RoleType | null> {
+async function getMinimumRoleForCommand(commandName: string): Promise<RoleType | null> {
   const config = await getRuntimeConfig();
   const overrides = config.commandRoleRequirements || {};
 
@@ -277,7 +277,7 @@ export {
   getSuppressedPrefixes,
   setSuppressedPrefixes,
   getCommandRoleRequirements,
-  getRequiredRoleForCommand,
+  getMinimumRoleForCommand,
   setCommandRoleRequirement,
   DEFAULT_COMMAND_ROLE_REQUIREMENTS,
   type RoleType,
