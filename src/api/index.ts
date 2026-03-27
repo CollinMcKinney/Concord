@@ -196,63 +196,17 @@ export const resetPassword = async (
 // Discord Configuration Exports
 // ============================================================================
 
-export const getDiscordStatus = (
-  actorSessionToken: string
-): Promise<{ isConnected: boolean; isConfigured: boolean; botTag?: string; channelId?: string }> => {
-  const requireAuth = () => checkCommandAccess("getDiscordStatus", actorSessionToken);
-  return config.getDiscordStatus(requireAuth);
-};
-
-export const updateDiscordConfig = (
-  actorSessionToken: string,
-  discordConfig: {
-    botToken?: string;
-    channelId?: string;
-    webhookUrl?: string;
-    permissionsInteger?: string;
-    clientId?: string;
-    clientSecret?: string;
-    redirectUri?: string;
-    discordInviteUrl?: string;
-  },
-  autoConnect?: boolean
-): Promise<{ success: boolean; error?: string }> => {
-  const requireAuth = () => checkCommandAccess("updateDiscordConfig", actorSessionToken);
-  return config.updateDiscordConfig(requireAuth, discordConfig, autoConnect);
-};
-
-export const startDiscord = (
-  actorSessionToken: string
-): Promise<{ success: boolean; error?: string }> => {
-  const requireAuth = () => checkCommandAccess("startDiscord", actorSessionToken);
-  return config.startDiscord(requireAuth);
-};
-
-export const stopDiscord = (
-  actorSessionToken: string
-): Promise<void> => {
-  const requireAuth = () => checkCommandAccess("stopDiscord", actorSessionToken);
-  return config.stopDiscord(requireAuth);
-};
+export const getDiscordStatus = apiCommand("getDiscordStatus", config.getDiscordStatus);
+export const updateDiscordConfig = apiCommand("updateDiscordConfig", config.updateDiscordConfig);
+export const startDiscord = apiCommand("startDiscord", config.startDiscord);
+export const stopDiscord = apiCommand("stopDiscord", config.stopDiscord);
 
 // ============================================================================
 // Limits Configuration Exports
 // ============================================================================
 
-export const getAllLimits = (
-  actorSessionToken: string
-): Promise<Array<object>> => {
-  const requireAuth = () => checkCommandAccess("getAllLimits", actorSessionToken);
-  return config.getAllLimits(requireAuth);
-};
-
-export const updateLimits = (
-  actorSessionToken: string,
-  limitsConfig: Record<string, string>
-): Promise<{ success: boolean; error?: string }> => {
-  const requireAuth = () => checkCommandAccess("updateLimits", actorSessionToken);
-  return config.updateLimits(requireAuth, limitsConfig);
-};
+export const getAllLimits = apiCommand("getAllLimits", config.getAllLimits);
+export const updateLimits = apiCommand("updateLimits", config.updateLimits);
 
 // ============================================================================
 // Command Dispatcher
