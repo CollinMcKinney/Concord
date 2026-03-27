@@ -68,10 +68,10 @@ async function requireRole(
 }
 
 /**
- * Enforces the configured role requirement for an API command.
+ * Checks if the caller has access to execute an API command.
  * For commands that allow anonymous access, pass an empty session token.
  */
-async function requireApiCommand(commandName: string, actorSessionToken: string): Promise<ApiActor> {
+async function checkCommandAccess(commandName: string, actorSessionToken: string): Promise<ApiActor> {
   const minimumRole = await getRequiredRoleForCommand(commandName);
   
   // If no role required, allow anonymous access
@@ -96,7 +96,7 @@ export const authenticate = async (
   password: string
 ) => {
   // authenticate() allows anonymous access (no session token needed)
-  await requireApiCommand("authenticate", "");
+  await checkCommandAccess("authenticate", "");
   return auth.authenticate(identifier, password);
 };
 
@@ -104,7 +104,7 @@ export const verifySession = async (
   sessionToken: string
 ) => {
   // verifySession() allows anonymous access (just validates the token)
-  await requireApiCommand("verifySession", sessionToken || "");
+  await checkCommandAccess("verifySession", sessionToken || "");
   return auth.verifySession(sessionToken);
 };
 
@@ -114,12 +114,12 @@ export const verifySession = async (
 // ============================================================================
 
 export const saveState = async (actorSessionToken: string) => {
-  await requireApiCommand("saveState", actorSessionToken);
+  await checkCommandAccess("saveState", actorSessionToken);
   return cache.saveState();
 };
 
 export const loadState = async (actorSessionToken: string) => {
-  await requireApiCommand("loadState", actorSessionToken);
+  await checkCommandAccess("loadState", actorSessionToken);
   return cache.loadState();
 };
 
@@ -135,7 +135,7 @@ export const addPacket = (
   data: import("../packet.ts").PacketData = {},
   meta: import("../packet.ts").PacketObject = {}
 ): Promise<boolean> => {
-  const requireAuth = () => requireApiCommand("addPacket", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("addPacket", actorSessionToken);
   return packets.addPacket(requireAuth, actorSessionToken, body, actorDetails, origin, data, meta);
 };
 
@@ -143,7 +143,7 @@ export const getPackets = (
   actorSessionToken: string,
   limit = 50
 ): Promise<import("../packet.ts").SerializedPacket[]> => {
-  const requireAuth = () => requireApiCommand("getPackets", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("getPackets", actorSessionToken);
   return packets.getPackets(requireAuth, limit);
 };
 
@@ -151,7 +151,7 @@ export const deletePacket = (
   actorSessionToken: string,
   packetId: string
 ): Promise<boolean> => {
-  const requireAuth = () => requireApiCommand("deletePacket", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("deletePacket", actorSessionToken);
   return packets.deletePacket(requireAuth, packetId);
 };
 
@@ -160,14 +160,14 @@ export const editPacket = (
   packetId: string,
   newContent: string
 ): Promise<boolean> => {
-  const requireAuth = () => requireApiCommand("editPacket", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("editPacket", actorSessionToken);
   return packets.editPacket(requireAuth, packetId, newContent);
 };
 
 export const getSuppressedPrefixes = (
   actorSessionToken: string
 ): Promise<string[]> => {
-  const requireAuth = () => requireApiCommand("getSuppressedPrefixes", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("getSuppressedPrefixes", actorSessionToken);
   return packets.getSuppressedPrefixes(requireAuth);
 };
 
@@ -175,14 +175,14 @@ export const setSuppressedPrefixes = (
   actorSessionToken: string,
   prefixes: string[]
 ): Promise<string[]> => {
-  const requireAuth = () => requireApiCommand("setSuppressedPrefixes", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("setSuppressedPrefixes", actorSessionToken);
   return packets.setSuppressedPrefixes(requireAuth, prefixes);
 };
 
 export const getCommandRoleRequirements = (
   actorSessionToken: string
 ): Promise<Record<string, import("../permission.ts").CommandRoleRequirementDetails>> => {
-  const requireAuth = () => requireApiCommand("getCommandRoleRequirements", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("getCommandRoleRequirements", actorSessionToken);
   return packets.getCommandRoleRequirements(requireAuth);
 };
 
@@ -191,7 +191,7 @@ export const setCommandRoleRequirement = (
   commandName: string,
   role: string | number | null
 ): Promise<{ commandName: string; roleValue: RoleType | null; roleName: string }> => {
-  const requireAuth = () => requireApiCommand("setCommandRoleRequirement", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("setCommandRoleRequirement", actorSessionToken);
   return packets.setCommandRoleRequirement(requireAuth, commandName, role);
 };
 
@@ -202,7 +202,7 @@ export const setCommandRoleRequirement = (
 export const listFiles = (
   actorSessionToken: string
 ): Promise<Record<import("../files.ts").FileCategory, import("../files.ts").FileMeta[]>> => {
-  const requireAuth = () => requireApiCommand("listFiles", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("listFiles", actorSessionToken);
   return files.listFiles(requireAuth);
 };
 
@@ -213,7 +213,7 @@ export const uploadFile = (
   base64Data: string,
   mimeType?: string
 ): Promise<import("../files.ts").FileMeta> => {
-  const requireAuth = () => requireApiCommand("uploadFile", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("uploadFile", actorSessionToken);
   return files.uploadFile(requireAuth, category, name, base64Data, mimeType);
 };
 
@@ -222,14 +222,14 @@ export const deleteFile = (
   category: import("../files.ts").FileCategory,
   name: string
 ): Promise<boolean> => {
-  const requireAuth = () => requireApiCommand("deleteFile", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("deleteFile", actorSessionToken);
   return files.deleteFile(requireAuth, category, name);
 };
 
 export const getCategories = (
   actorSessionToken: string
 ): Promise<import("../files.ts").FileCategory[]> => {
-  const requireAuth = () => requireApiCommand("getCategories", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("getCategories", actorSessionToken);
   return files.getCategories(requireAuth);
 };
 
@@ -237,7 +237,7 @@ export const createCategory = (
   actorSessionToken: string,
   name: string
 ): Promise<import("../files.ts").FileCategory> => {
-  const requireAuth = () => requireApiCommand("createCategory", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("createCategory", actorSessionToken);
   return files.createCategory(requireAuth, name);
 };
 
@@ -245,14 +245,14 @@ export const deleteCategory = (
   actorSessionToken: string,
   name: string
 ): Promise<boolean> => {
-  const requireAuth = () => requireApiCommand("deleteCategory", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("deleteCategory", actorSessionToken);
   return files.deleteCategory(requireAuth, name);
 };
 
 export const getAllowedMimeTypes = (
   actorSessionToken: string
 ): Promise<string[]> => {
-  const requireAuth = () => requireApiCommand("getAllowedMimeTypes", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("getAllowedMimeTypes", actorSessionToken);
   return files.getAllowedMimeTypes(requireAuth);
 };
 
@@ -260,7 +260,7 @@ export const setAllowedMimeTypes = (
   actorSessionToken: string,
   ...mimeTypes: string[]
 ): Promise<void> => {
-  const requireAuth = () => requireApiCommand("setAllowedMimeTypes", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("setAllowedMimeTypes", actorSessionToken);
   const requireRoot = async () => {
     const actor = await auth.getVerifiedActor(actorSessionToken);
     if (actor.role < Roles.ROOT) {
@@ -281,14 +281,14 @@ export const createUser = async (
   forum_name: string,
   password: string
 ) => {
-  await requireApiCommand("createUser", actorSessionToken);
+  await checkCommandAccess("createUser", actorSessionToken);
   return user.createUser(actorSessionToken, osrs_name, disc_name, forum_name, password);
 };
 
 export const listUsers = async (
   actorSessionToken: string
 ) => {
-  await requireApiCommand("listUsers", actorSessionToken);
+  await checkCommandAccess("listUsers", actorSessionToken);
   return user.listUsers(actorSessionToken);
 };
 
@@ -296,7 +296,7 @@ export const getUser = async (
   actorSessionToken: string,
   identifier: string
 ) => {
-  await requireApiCommand("getUser", actorSessionToken);
+  await checkCommandAccess("getUser", actorSessionToken);
   return user.getUser(actorSessionToken, identifier);
 };
 
@@ -305,7 +305,7 @@ export const setRole = async (
   targetIdentifier: string,
   newRole: string | number
 ) => {
-  await requireApiCommand("setRole", actorSessionToken);
+  await checkCommandAccess("setRole", actorSessionToken);
   return user.setRole(actorSessionToken, targetIdentifier, newRole);
 };
 
@@ -313,7 +313,7 @@ export const deleteUser = async (
   actorSessionToken: string,
   targetIdentifier: string
 ) => {
-  await requireApiCommand("deleteUser", actorSessionToken);
+  await checkCommandAccess("deleteUser", actorSessionToken);
   return user.deleteUser(actorSessionToken, targetIdentifier);
 };
 
@@ -322,7 +322,7 @@ export const changePassword = async (
   targetIdentifier: string,
   newPassword: string
 ) => {
-  await requireApiCommand("changePassword", actorSessionToken);
+  await checkCommandAccess("changePassword", actorSessionToken);
   return user.changePassword(actorSessionToken, targetIdentifier, newPassword);
 };
 
@@ -331,7 +331,7 @@ export const resetPassword = async (
   targetIdentifier: string,
   newPassword: string
 ) => {
-  await requireApiCommand("resetPassword", actorSessionToken);
+  await checkCommandAccess("resetPassword", actorSessionToken);
   return user.resetPassword(actorSessionToken, targetIdentifier, newPassword);
 };
 
@@ -342,7 +342,7 @@ export const resetPassword = async (
 export const getDiscordStatus = (
   actorSessionToken: string
 ): Promise<{ isConnected: boolean; isConfigured: boolean; botTag?: string; channelId?: string }> => {
-  const requireAuth = () => requireApiCommand("getDiscordStatus", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("getDiscordStatus", actorSessionToken);
   return config.getDiscordStatus(requireAuth);
 };
 
@@ -360,21 +360,21 @@ export const updateDiscordConfig = (
   },
   autoConnect?: boolean
 ): Promise<{ success: boolean; error?: string }> => {
-  const requireAuth = () => requireApiCommand("updateDiscordConfig", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("updateDiscordConfig", actorSessionToken);
   return config.updateDiscordConfig(requireAuth, discordConfig, autoConnect);
 };
 
 export const startDiscord = (
   actorSessionToken: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const requireAuth = () => requireApiCommand("startDiscord", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("startDiscord", actorSessionToken);
   return config.startDiscord(requireAuth);
 };
 
 export const stopDiscord = (
   actorSessionToken: string
 ): Promise<void> => {
-  const requireAuth = () => requireApiCommand("stopDiscord", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("stopDiscord", actorSessionToken);
   return config.stopDiscord(requireAuth);
 };
 
@@ -385,7 +385,7 @@ export const stopDiscord = (
 export const getAllLimits = (
   actorSessionToken: string
 ): Promise<Array<object>> => {
-  const requireAuth = () => requireApiCommand("getAllLimits", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("getAllLimits", actorSessionToken);
   return config.getAllLimits(requireAuth);
 };
 
@@ -393,7 +393,7 @@ export const updateLimits = (
   actorSessionToken: string,
   limitsConfig: Record<string, string>
 ): Promise<{ success: boolean; error?: string }> => {
-  const requireAuth = () => requireApiCommand("updateLimits", actorSessionToken);
+  const requireAuth = () => checkCommandAccess("updateLimits", actorSessionToken);
   return config.updateLimits(requireAuth, limitsConfig);
 };
 
