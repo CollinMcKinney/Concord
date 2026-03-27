@@ -309,19 +309,25 @@ apiRouter.post("/call", async (req: Request, res: Response) => {
   let userIdentifier = 'anonymous';
   let logArgs = parsedArgs;
 
-  if (parsedArgs.length > 0 && typeof parsedArgs[0] === 'string' && parsedArgs[0].length > 32) {
+  // Session token is always first arg - extract user info and exclude from logs
+  if (parsedArgs.length > 0 && typeof parsedArgs[0] === 'string') {
     try {
       const actor = await auth.getVerifiedActor(parsedArgs[0]);
       userIdentifier = actor.osrs_name || actor.disc_name || actor.forum_name || actor.id.slice(0, 8);
     } catch {
       // Invalid session, keep anonymous
     }
+    // Remove session token from logged args
     logArgs = parsedArgs.slice(1);
   }
 
-  if (functionName === 'uploadFile' && logArgs.length > 3) {
-    logArgs = [logArgs[0], logArgs[1], `<${logArgs[2].length} bytes>`, logArgs[3]];
-  }
+  // Truncate long arguments (e.g., base64 image data) for cleaner logs
+  logArgs = logArgs.map(arg => {
+    if (typeof arg === 'string' && arg.length > 100) {
+      return `<${arg.length} chars>`;
+    }
+    return arg;
+  });
 
   const argsStr = logArgs.length === 0 ? '' : logArgs.map(a => JSON.stringify(a)).join(', ');
   const now = new Date();
@@ -343,7 +349,16 @@ apiRouter.post("/call", async (req: Request, res: Response) => {
     const result = await invokeApiCommand(functionName, parsedArgs);
     return res.json({ result });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown API error";
+    let message = err instanceof Error ? err.message : "Unknown API error";
+    // Truncate long error messages from the center (e.g., base64 data in validation errors)
+    if (message.length > 500) {
+      const headLen = Math.floor(250);
+      const tailLen = 250;
+      const start = message.substring(0, headLen);
+      const end = message.substring(message.length - tailLen);
+      const omitted = `${colors.gray}... (${message.length - headLen - tailLen} chars omitted) ...${colors.reset}`;
+      message = `${start}${omitted}${end}`;
+    }
     console.error(`${colors.red}Error:${colors.reset} [api/call]`, message);
     return res.status(500).json({ error: message });
   }

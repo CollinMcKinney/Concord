@@ -92,7 +92,7 @@ class User {
  * Prints the current root credentials to the console for local admin access.
  */
 export function printRootCredentials(): void {
-  const sessionToken = rootCredentials?.sessionToken || process.env.ROOT_SESSION_TOKEN || "";
+  const sessionToken = rootCredentials?.sessionToken || "";
   const loginUrl = `https://localhost/dashboard/root?sessionToken=${sessionToken}`;
 
   console.log("");
@@ -257,7 +257,7 @@ async function authenticateUserSession(userId: string, hashedPass: string): Prom
   }
 
   // Create a new session token
-  const sessionToken = crypto.randomBytes(32).toString("hex");
+  const sessionToken = crypto.randomBytes(16).toString("hex");
   const sessionTokenHash = hashSessionToken(sessionToken);
   const newSession: SessionData = {
     userId,
@@ -349,7 +349,7 @@ async function initializeRoot(): Promise<User | null> {
         forum_name: "ROOT",
       },
       Roles.ROOT,
-      hashSessionToken(crypto.randomBytes(32).toString("hex")),
+      await hashPassword(crypto.randomBytes(32).toString("hex")),
       new Date()
     );
 
@@ -410,7 +410,7 @@ async function createUserInternal(
  * @param osrsName - An optional initial RuneScape name to attach to the guest account before first use.
  */
 async function createGuestSession(osrsName = ""): Promise<GuestSession> {
-  const guestSecret = crypto.randomBytes(32).toString("hex");
+  const guestSecret = crypto.randomBytes(16).toString("hex");
   const guest = await createUserInternal(osrsName, "", "", Roles.GUEST, guestSecret);
   const sessionToken = await authenticateUserSession(guest.id, guest.hashedPass);
 

@@ -158,7 +158,7 @@ async function authenticate(identifier: string, password: string): Promise<strin
   }
 
   // Create a new session token
-  const sessionToken = crypto.randomBytes(32).toString("hex");
+  const sessionToken = crypto.randomBytes(16).toString("hex");
   const sessionTokenHash = hashSessionToken(sessionToken);
   const newSession: SessionData = {
     userId,

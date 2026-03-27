@@ -12,6 +12,7 @@ export async function listFiles(): Promise<Record<FileCategory, FileMeta[]>> {
  * Uploads a file to disk from base64-encoded data.
  */
 export async function uploadFile(
+  _sessionToken: string,
   category: FileCategory,
   name: string,
   base64Data: string,
