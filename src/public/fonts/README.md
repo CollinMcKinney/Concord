@@ -1,6 +1,6 @@
 # Self-Hosted Fonts
 
-This directory contains self-hosted font files for the Concord Admin Panel.
+This directory contains self-hosted font files for the Concord Dashboard.
 
 ## License
 
