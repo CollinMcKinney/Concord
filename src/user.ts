@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-import { type ActorData, type SessionData, SESSION_TTL_HOURS, updateSessionTTL } from "./auth.ts";
+import { type ActorData, type SessionData, SESSION_TTL_HOURS, updateSessionTTL, hashSessionToken, verifySession } from "./auth.ts";
 import * as cache from "./cache.ts";
 import { Roles, type RoleType } from "./permission.ts";
 
@@ -279,7 +279,7 @@ async function authenticateUserSession(userId: string, hashedPass: string): Prom
 
   // Create a new session token
   const sessionToken = crypto.randomBytes(32).toString("hex");
-  const sessionTokenHash = auth.hashSessionToken(sessionToken);
+  const sessionTokenHash = hashSessionToken(sessionToken);
   const newSession: SessionData = {
     userId,
     created: Date.now(),
@@ -297,7 +297,7 @@ async function authenticateUserSession(userId: string, hashedPass: string): Prom
  * @returns The verified user id.
  */
 async function verifyAuthenticatedUser(userId: string, sessionToken: string): Promise<string> {
-  const verifiedId = await auth.verifySession(sessionToken);
+  const verifiedId = await verifySession(sessionToken);
   if (!verifiedId) {
     throw new Error("Failed to verify authenticated session");
   }
