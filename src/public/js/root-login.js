@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('currentUserRole', '6'); // ROOT role
         sessionStorage.setItem('currentUsername', data.username || 'ROOT');
         // Redirect to admin panel
-        window.location.href = data.redirect || '/admin/';
+        window.location.href = data.redirect || '/dashboard/';
       } else {
         // Show error
         if (errorDiv) {

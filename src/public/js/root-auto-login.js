@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('sessionToken', data.sessionToken);
         sessionStorage.setItem('currentUserRole', '6');
         sessionStorage.setItem('currentUsername', data.username || 'ROOT');
-        window.location.href = data.redirect || '/admin/';
+        window.location.href = data.redirect || '/dashboard/';
       } else {
         // Show error
         if (errorDiv) {

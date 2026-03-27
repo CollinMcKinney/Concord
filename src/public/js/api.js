@@ -11,7 +11,7 @@ async function apiCall(functionName, args = []) {
 
   // For authenticate calls, pass credentials directly without wrapping
   if (functionName === 'authenticate') {
-    const response = await fetch('/admin/call', {
+    const response = await fetch('/dashboard/call', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ functionName, args })
@@ -63,7 +63,7 @@ async function apiCall(functionName, args = []) {
     ? [sessionToken, ...args]
     : ['', ...args];
 
-  const response = await fetch('/admin/call', {
+  const response = await fetch('/dashboard/call', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ functionName, args: fullArgs })
