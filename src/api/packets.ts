@@ -54,7 +54,7 @@ async function resolveActorName(actorId: string | null, actorDetails: Partial<Ac
  * Creates and persists a chat packet through the admin API.
  */
 export async function addPacket(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   actorSessionToken: string,
   body: string,
   actorDetails: Partial<ActorInfo> = {},
@@ -77,7 +77,7 @@ export async function addPacket(
  * Returns recent packets for an authorized admin actor.
  */
 export async function getPackets(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   limit = 50
 ): Promise<SerializedPacket[]> {
   await requireAuth();
@@ -88,7 +88,7 @@ export async function getPackets(
  * Marks a packet as deleted through the admin API.
  */
 export async function deletePacket(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   packetId: string
 ): Promise<boolean> {
   await requireAuth();
@@ -99,7 +99,7 @@ export async function deletePacket(
  * Updates an existing packet's content through the admin API.
  */
 export async function editPacket(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   packetId: string,
   newContent: string
 ): Promise<boolean> {
@@ -111,7 +111,7 @@ export async function editPacket(
  * Returns the configured RuneLite message suppression prefixes.
  */
 export async function getSuppressedPrefixes(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<string[]> {
   await requireAuth();
   return permission.getSuppressedPrefixes();
@@ -121,7 +121,7 @@ export async function getSuppressedPrefixes(
  * Replaces the configured RuneLite message suppression prefixes.
  */
 export async function setSuppressedPrefixes(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   prefixes: string[]
 ): Promise<string[]> {
   await requireAuth();
@@ -134,7 +134,7 @@ export async function setSuppressedPrefixes(
  * Returns the effective role requirement for each admin command.
  */
 export async function getCommandRoleRequirements(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<Record<string, CommandRoleRequirementDetails>> {
   await requireAuth();
   return permission.getCommandRoleRequirements();
@@ -144,7 +144,7 @@ export async function getCommandRoleRequirements(
  * Overrides the configured role requirement for a specific admin command.
  */
 export async function setCommandRoleRequirement(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   commandName: string,
   role: string | number | null
 ): Promise<{ commandName: string; roleValue: import("../permission.ts").RoleType | null; roleName: string }> {

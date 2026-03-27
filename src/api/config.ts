@@ -5,7 +5,7 @@ import * as limits from "../limits.ts";
  * Gets Discord connection status and configuration.
  */
 export async function getDiscordStatus(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<{
   isConnected: boolean;
   isConfigured: boolean;
@@ -20,7 +20,7 @@ export async function getDiscordStatus(
  * Updates Discord configuration.
  */
 export async function updateDiscordConfig(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   config: {
     botToken?: string;
     channelId?: string;
@@ -41,7 +41,7 @@ export async function updateDiscordConfig(
  * Starts Discord bot connection.
  */
 export async function startDiscord(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<{ success: boolean; error?: string }> {
   await requireAuth();
   return discord.startDiscord();
@@ -51,7 +51,7 @@ export async function startDiscord(
  * Stops Discord bot connection.
  */
 export async function stopDiscord(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<void> {
   await requireAuth();
   await discord.stopDiscord();
@@ -61,7 +61,7 @@ export async function stopDiscord(
  * Gets all runtime limits configuration.
  */
 export async function getAllLimits(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<Array<object>> {
   await requireAuth();
   return limits.getAllLimits();
@@ -71,7 +71,7 @@ export async function getAllLimits(
  * Updates runtime limits configuration.
  */
 export async function updateLimits(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   config: Record<string, string>
 ): Promise<{ success: boolean; error?: string }> {
   await requireAuth();

@@ -5,7 +5,7 @@ import type { FileCategory, FileMeta } from "../files.ts";
  * Lists all files across all categories.
  */
 export async function listFiles(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<Record<FileCategory, FileMeta[]>> {
   await requireAuth();
   return files.listAllFiles();
@@ -15,7 +15,7 @@ export async function listFiles(
  * Lists all files in a specific category.
  */
 export async function listFilesByCategory(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   category: FileCategory
 ): Promise<FileMeta[]> {
   await requireAuth();
@@ -36,7 +36,7 @@ export async function listFilesByCategory(
  * Uploads a file to disk from base64-encoded data.
  */
 export async function uploadFile(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   category: FileCategory,
   name: string,
   base64Data: string,
@@ -62,7 +62,7 @@ export async function uploadFile(
  * Deletes a file from disk and cache.
  */
 export async function deleteFile(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   category: FileCategory,
   name: string
 ): Promise<boolean> {
@@ -81,7 +81,7 @@ export async function deleteFile(
  * Lists all file categories.
  */
 export async function getCategories(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<FileCategory[]> {
   await requireAuth();
   return files.getCategories();
@@ -91,7 +91,7 @@ export async function getCategories(
  * Creates a new file category.
  */
 export async function createCategory(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   name: string
 ): Promise<FileCategory> {
   await requireAuth();
@@ -102,7 +102,7 @@ export async function createCategory(
  * Deletes a file category.
  */
 export async function deleteCategory(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   name: string
 ): Promise<boolean> {
   await requireAuth();
@@ -113,7 +113,7 @@ export async function deleteCategory(
  * Gets the list of allowed MIME types for file uploads.
  */
 export async function getAllowedMimeTypes(
-  requireAuth: () => Promise<void>
+  requireAuth: () => Promise<unknown>
 ): Promise<string[]> {
   await requireAuth();
   return files.getAllowedMimeTypes();
@@ -123,7 +123,7 @@ export async function getAllowedMimeTypes(
  * Sets the list of allowed MIME types for file uploads (ROOT only).
  */
 export async function setAllowedMimeTypes(
-  requireAuth: () => Promise<void>,
+  requireAuth: () => Promise<unknown>,
   requireRoot: () => Promise<void>,
   ...mimeTypes: string[]
 ): Promise<void> {

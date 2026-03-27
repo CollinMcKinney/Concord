@@ -14,7 +14,7 @@ import { Packet, type SerializedPacket } from "./packet.ts";
 import { attachToServer, broadcast, closeWebSocketServer } from "./runelite.ts";
 import { initializeRoot, updateSessionTTL } from "./user.ts";
 import { initLimits } from "./limits.ts";
-import adminRouter from "./admin.ts";
+import adminRouter from "./api.ts";
 
 type Express = express.Express;
 

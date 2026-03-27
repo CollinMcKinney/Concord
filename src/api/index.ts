@@ -8,7 +8,7 @@ import type { Router, Request, Response } from "express";
 import * as auth from "../auth.ts";
 import type { ActorData } from "../auth.ts";
 import * as cache from "../cache.ts";
-import { Roles, type RoleType } from "../permission.ts";
+import { Roles, type RoleType, getRequiredRoleForCommand } from "../permission.ts";
 import * as limits from "../limits.ts";
 import * as user from "../user.ts";
 import type { UserData } from "../user.ts";
@@ -71,7 +71,7 @@ async function requireRole(
  * Enforces the configured role requirement for an admin command.
  */
 async function requireAdminCommand(commandName: string, actorSessionToken: string): Promise<AdminActor> {
-  const minimumRole = await import("../permission.ts").then(m => m.getRequiredRoleForCommand(commandName));
+  const minimumRole = await getRequiredRoleForCommand(commandName);
   return requireRole(actorSessionToken, minimumRole);
 }
 
@@ -103,7 +103,7 @@ export const loadState = async (actorSessionToken: string) => {
 export const addPacket = (
   actorSessionToken: string,
   body: string,
-  actorDetails: import("../packet.ts").ActorInfo = {},
+  actorDetails: Partial<import("../packet.ts").ActorInfo> = {},
   origin = "admin",
   data: import("../packet.ts").PacketData = {},
   meta: import("../packet.ts").PacketObject = {}
@@ -278,7 +278,7 @@ export const getDiscordStatus = (
 
 export const updateDiscordConfig = (
   actorSessionToken: string,
-  config: {
+  discordConfig: {
     botToken?: string;
     channelId?: string;
     webhookUrl?: string;
@@ -291,7 +291,7 @@ export const updateDiscordConfig = (
   autoConnect?: boolean
 ): Promise<{ success: boolean; error?: string }> => {
   const requireAuth = () => requireAdminCommand("updateDiscordConfig", actorSessionToken);
-  return config.updateDiscordConfig(requireAuth, config, autoConnect);
+  return config.updateDiscordConfig(requireAuth, discordConfig, autoConnect);
 };
 
 export const startDiscord = (
@@ -321,10 +321,10 @@ export const getAllLimits = (
 
 export const updateLimits = (
   actorSessionToken: string,
-  config: Record<string, string>
+  limitsConfig: Record<string, string>
 ): Promise<{ success: boolean; error?: string }> => {
   const requireAuth = () => requireAdminCommand("updateLimits", actorSessionToken);
-  return config.updateLimits(requireAuth, config);
+  return config.updateLimits(requireAuth, limitsConfig);
 };
 
 // ============================================================================
