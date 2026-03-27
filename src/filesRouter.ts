@@ -4,6 +4,7 @@ import type { Router, Request, Response } from "express";
 import * as auth from "./auth.ts";
 import * as files from "./files.ts";
 import type { FileCategory, FileMeta } from "./files.ts";
+import { Roles } from "./permission.ts";
 
 const router: Router = express.Router();
 
@@ -48,17 +49,6 @@ function requireRole(minRole: number): (req: Request, res: Response, next: Funct
     next();
   };
 }
-
-// Role constants (should match permission.ts)
-const Roles = {
-  BLOCKED: 0,
-  GUEST: 1,
-  MEMBER: 2,
-  MODERATOR: 3,
-  ADMIN: 4,
-  OWNER: 5,
-  ROOT: 6
-};
 
 /**
  * Validates and normalizes a file category from URL params.

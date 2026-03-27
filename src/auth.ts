@@ -1,8 +1,8 @@
 import crypto from "crypto";
 
+import argon2 from "argon2";
 import * as cache from "./cache.ts";
 import { Roles, type RoleType } from "./permission.ts";
-import { User } from "./user.ts";
 import { getLimitsConfig } from "./limits.ts";
 
 // ANSI color codes for console output
@@ -31,6 +31,26 @@ export async function updateSessionTTL(): Promise<void> {
  */
 function hashSessionToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * Hash a password using Argon2 (with automatic salting)
+ */
+async function hashPassword(password: string): Promise<string> {
+  if (!password) return "";
+  return await argon2.hash(password);
+}
+
+/**
+ * Verify a password against an Argon2 hash
+ */
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  if (!password || !hash) return false;
+  try {
+    return await argon2.verify(hash, password);
+  } catch (err) {
+    return false;
+  }
 }
 
 /**
@@ -131,7 +151,7 @@ async function authenticate(identifier: string, password: string): Promise<strin
   const userId = user.id;
 
   // Verify password using Argon2
-  const validPassword = await User.verifyPassword(password, user.hashedPass);
+  const validPassword = await verifyPassword(password, user.hashedPass);
   if (!validPassword) {
     console.log(`${colors.cyan}[auth]${colors.reset} Authentication failed for user:`, { userId });
     return null;
@@ -206,6 +226,8 @@ export {
   getVerifiedActor,
   requireRole,
   hashSessionToken,
+  hashPassword,
+  verifyPassword,
   SESSION_TTL_HOURS,
   type ActorData,
   type SessionData

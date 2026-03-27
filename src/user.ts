@@ -1,11 +1,8 @@
 import crypto from "crypto";
 
-import argon2 from "argon2";
-
 import * as auth from "./auth.ts";
-import { type ActorData, type SessionData, SESSION_TTL_HOURS, updateSessionTTL } from "./auth.ts";
+import { type ActorData, type SessionData, SESSION_TTL_HOURS, updateSessionTTL, hashPassword, verifyPassword } from "./auth.ts";
 import * as cache from "./cache.ts";
-import * as permission from "./permission.ts";
 import { Roles, type RoleType } from "./permission.ts";
 
 // ANSI color codes for console output
@@ -95,24 +92,18 @@ class User {
    * Hash a password using Argon2 (with automatic salting)
    */
   static async hashPassword(password: string): Promise<string> {
-    if (!password) return "";
-    return await argon2.hash(password);
+    return hashPassword(password);
   }
-  
+
   /**
    * Verify a password against an Argon2 hash
    */
   static async verifyPassword(password: string, hash: string): Promise<boolean> {
-    if (!password || !hash) return false;
-    try {
-      return await argon2.verify(hash, password);
-    } catch (err) {
-      return false;
-    }
+    return verifyPassword(password, hash);
   }
-  
+
   /**
-   * Hash a password/token (legacy SHA-256, kept for backward compatibility)
+   * Hash a token using SHA-256 (for session tokens, etc.)
    */
   static hashToken(token: string): string {
     return crypto.createHash("sha256").update(token).digest("hex");
@@ -344,19 +335,6 @@ function assignRootCredentials(root: User, verifiedId: string, sessionToken: str
  */
 export function getRootCredentials(): typeof rootCredentials {
   return rootCredentials;
-}
-
-/**
- * Enforces the configured role requirement for a user-facing command.
- * @param actorId - The user id of the actor attempting to run the command.
- * @param actorSessionToken - The actor's session token.
- * @param commandName - The logical command name whose required role should be enforced.
- */
-async function requireCommandRole(actorId: string, actorSessionToken: string, commandName: string): Promise<void> {
-  const minimumRole = await permission.getRequiredRoleForCommand(commandName);
-  if (minimumRole != null) {
-    await auth.requireRole(actorSessionToken, minimumRole);
-  }
 }
 
 /**
@@ -705,6 +683,49 @@ async function deleteUser(
 }
 
 /**
+ * Looks up a user by ID or username (osrs_name, disc_name, or forum_name).
+ * @param identifier - User ID or username to look up.
+ * @returns The user data or null if not found.
+ */
+async function findUserByIdentifier(identifier: string): Promise<UserData | null> {
+  // First try as userId
+  let user = await loadStoredUser(identifier);
+  if (user) return user;
+
+  // Try as osrs_name
+  const osrsId = await cache.get<string>(`user:osrs:${identifier}`);
+  if (osrsId) return loadStoredUser(osrsId);
+
+  // Try as disc_name
+  const discId = await cache.get<string>(`user:discord:${identifier}`);
+  if (discId) return loadStoredUser(discId);
+
+  // Try as forum_name
+  const forumId = await cache.get<string>(`user:forum:${identifier}`);
+  if (forumId) return loadStoredUser(forumId);
+
+  return null;
+}
+
+/**
+ * Internal helper to update a user's password.
+ * @param target - The user record to update.
+ * @param newPassword - The new password to hash and store.
+ * @param logMessage - The log message prefix.
+ */
+async function _updateUserPassword(
+  target: UserData,
+  newPassword: string,
+  logMessage: string
+): Promise<boolean> {
+  const hashedPass = await User.hashPassword(newPassword);
+  target.hashedPass = hashedPass;
+  await saveStoredUser(target);
+  console.log(`${colors.green}[user]${colors.reset} ${logMessage}:`, { userId: target.id });
+  return true;
+}
+
+/**
  * Changes a user's password.
  * @param actorSessionToken - The session token of the user requesting the change.
  * @param targetIdentifier - The user ID or username whose password should be changed (can be own ID).
@@ -717,19 +738,8 @@ async function changePassword(
 ): Promise<boolean> {
   const actor = await auth.getVerifiedActor(actorSessionToken);
 
-  // Look up target by ID or username
-  let target: UserData | null = await loadStoredUser(targetIdentifier);
-  if (!target) {
-    // Try looking up by username
-    const osrsId = await cache.get<string>(`user:osrs:${targetIdentifier}`);
-    const discId = await cache.get<string>(`user:discord:${targetIdentifier}`);
-    const forumId = await cache.get<string>(`user:forum:${targetIdentifier}`);
-    const userId = osrsId || discId || forumId;
-    if (userId) {
-      target = await loadStoredUser(userId);
-    }
-  }
-
+  // Look up target user
+  const target = await findUserByIdentifier(targetIdentifier);
   if (!target) {
     throw new Error("User not found");
   }
@@ -744,14 +754,7 @@ async function changePassword(
     throw new Error("Cannot change ROOT password");
   }
 
-  // Hash new password with Argon2
-  const hashedPass = await User.hashPassword(newPassword);
-  target.hashedPass = hashedPass;
-
-  await saveStoredUser(target);
-  console.log(`${colors.green}[user]${colors.reset} Password changed:`, { userId: target.id });
-
-  return true;
+  return _updateUserPassword(target, newPassword, "Password changed");
 }
 
 /**
@@ -772,36 +775,13 @@ async function resetPassword(
     throw new Error("Only ROOT can reset passwords");
   }
 
-  // Look up target by ID or username
-  let target: UserData | null = await loadStoredUser(targetIdentifier);
-  if (!target) {
-    // Try looking up by username
-    const osrsId = await cache.get<string>(`user:osrs:${targetIdentifier}`);
-    const discId = await cache.get<string>(`user:discord:${targetIdentifier}`);
-    const forumId = await cache.get<string>(`user:forum:${targetIdentifier}`);
-    const userId = osrsId || discId || forumId;
-    if (userId) {
-      target = await loadStoredUser(userId);
-    }
-  }
-
+  // Look up target user
+  const target = await findUserByIdentifier(targetIdentifier);
   if (!target) {
     throw new Error("User not found");
   }
 
-  // Cannot change ROOT password unless you're ROOT (already checked above)
-  if (target.role === Roles.ROOT && actor.role !== Roles.ROOT) {
-    throw new Error("Cannot change ROOT password");
-  }
-
-  // Hash new password with Argon2
-  const hashedPass = await User.hashPassword(newPassword);
-  target.hashedPass = hashedPass;
-
-  await saveStoredUser(target);
-  console.log(`${colors.green}[user]${colors.reset} Password reset by ROOT:`, { userId: target.id, target: target.osrs_name || target.disc_name || target.forum_name });
-
-  return true;
+  return _updateUserPassword(target, newPassword, "Password reset by ROOT");
 }
 
 export {
