@@ -1,0 +1,35 @@
+<!-- Files View -->
+<div class="content-panel-header">
+  <h2 class="content-panel-title">📁 Files <span class="compact-badge compact-badge-status" id="files-total-count">0 total</span></h2>
+  <div class="content-panel-actions">
+    <button type="button" class="primary-button" data-action="open-upload-modal" title="Upload a new file">+ Upload File</button>
+    <button type="button" class="secondary-button" data-action="open-add-category" title="Create a new category">📁 Add Folder</button>
+    <button type="button" class="secondary-button" data-action="refresh" title="Reload this view">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="content-panel-body">
+  <!-- Allowed MIME Types Section (ROOT only) -->
+  <div id="files-mime-types-section" style="display: none; margin-bottom: 16px;">
+    <div class="compact-card" style="display: block;">
+      <div class="compact-card-body">
+        <div class="field">
+          <label>🔒 Allowed File Types</label>
+          <div style="color: var(--muted); font-size: 0.85rem; margin-bottom: 12px;">Only these MIME types can be uploaded. ROOT only.</div>
+          <div id="files-mime-types-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category tabs -->
+  <div id="files-category-tabs" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; flex-wrap: wrap;"></div>
+  
+  <!-- Search bar -->
+  <div style="margin-bottom: 16px;">
+    <input type="text" id="files-search-input" placeholder="Search files..." data-action="search-files" autocomplete="off" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
+  </div>
+  
+  <!-- Results container -->
+  <div id="files-results"></div>
+</div>

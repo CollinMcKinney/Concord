@@ -32,9 +32,9 @@ async function apiCall(functionName, args = []) {
           const identifier = args[0];
           const currentUser = users.find(u =>
             u.id === identifier ||
-            u.osrs_name === identifier ||
-            u.disc_name === identifier ||
-            u.forum_name === identifier
+            u.osrsName === identifier ||
+            u.discName === identifier ||
+            u.forumName === identifier
           );
 
           if (currentUser) {

@@ -7,7 +7,7 @@ import express from "express";
 import helmet from "helmet";
 
 import { initDiscord } from "./discord.ts";
-import { initStorage, saveState, loadState, startAutoSaveDynamic, client, stopAutoSave } from "./ephemeral/cache.ts";
+import { initStorage, client } from "./ephemeral/cache.ts";
 import { initFiles, updateUploadSizeLimit } from "./persistent/files.ts";
 import { Packet, type SerializedPacket } from "./ephemeral/packets.ts";
 import { attachToServer, broadcast, closeWebSocketServer } from "./runelite.ts";
@@ -90,18 +90,14 @@ attachToServer(server);
  */
 async function start(): Promise<void> {
   await initStorage();
-  await loadState();
   await initializeRoot();
   await initFiles();
   await initLimits();
   await initDiscord();
-  
+
   // Load runtime config from cache
   await updateSessionTTL();
   await updateUploadSizeLimit();
-  
-  startAutoSaveDynamic();
-  await saveState();
 
   const port = process.env.API_PORT || '8080';
   server.listen(port, () => {
@@ -121,9 +117,6 @@ async function gracefulShutdown(signal: string) {
   console.log(`${colors.yellow}[server]${colors.reset} Received ${signal}, shutting down gracefully...`);
 
   try {
-    // Stop auto-save timer
-    stopAutoSave();
-
     // Stop accepting new connections
     server.close(() => {
       console.log(`${colors.green}[server]${colors.reset} HTTP server closed`);
@@ -138,8 +131,7 @@ async function gracefulShutdown(signal: string) {
 
     // Close Redis connection
     if (client && client.isOpen) {
-      console.log(`${colors.cyan}[server]${colors.reset} Saving state and closing Redis...`);
-      await saveState();
+      console.log(`${colors.cyan}[server]${colors.reset} Closing Redis...`);
       await client.quit();
       console.log(`${colors.green}[server]${colors.reset} Redis connection closed`);
     }

@@ -1,0 +1,21 @@
+<!-- Users View -->
+<div class="content-panel-header">
+  <h2 class="content-panel-title">👤 Users <span class="compact-badge compact-badge-status" id="users-total-count">0 total</span></h2>
+  <div class="content-panel-actions">
+    <button type="button" class="primary-button" data-action="open-create-user" title="Create a new user">+ Add User</button>
+    <button type="button" class="secondary-button" data-action="refresh" title="Reload this view">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="content-panel-body">
+  <!-- Role tabs -->
+  <div id="users-role-tabs" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; flex-wrap: wrap;"></div>
+  
+  <!-- Search bar -->
+  <div style="margin-bottom: 16px;">
+    <input type="text" id="users-search-input" placeholder="Search users..." data-action="search-users" autocomplete="off" style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
+  </div>
+  
+  <!-- Results container -->
+  <div id="users-results"></div>
+</div>

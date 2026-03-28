@@ -3,6 +3,7 @@ import * as cache from "./ephemeral/cache.ts";
 import { hashSessionToken, createSession, verifySession as verifyUserSession } from "./ephemeral/sessions.ts";
 import { Roles, type RoleType } from "./persistent/permissions.ts";
 import { getLimitsConfig } from "./persistent/limits.ts";
+import type { DbUser } from "./persistent/users.ts";
 
 // ANSI color codes for console output
 const colors = {
@@ -34,46 +35,32 @@ async function verifyPassword(password: string, hash: string): Promise<boolean> 
 }
 
 /**
- * Minimal authenticated actor shape returned by authorization helpers.
+ * Minimal authenticated actor shape - alias for DbUser to avoid duplication
  */
-interface ActorData {
-  id: string;
-  osrs_name?: string;
-  disc_name?: string;
-  forum_name?: string;
-  role: RoleType;
-  hashedPass: string;
-  created_at?: number | Date;
-}
+type ActorData = DbUser;
 
 /**
  * Creates a new member account directly from registration details.
- * @param osrs_name - The user's in-game RuneScape name to store on the new account.
- * @param disc_name - The Discord handle to associate with the account.
- * @param forum_name - The forum username to associate with the account.
- * @param hashedPass - The pre-hashed credential value that will be stored for later authentication.
  */
 async function register(
-  osrs_name: string,
-  disc_name: string,
-  forum_name: string,
+  osrsName: string,
+  discName: string,
+  forumName: string,
   hashedPass: string
 ): Promise<ActorData> {
   const users = await import("./persistent/users.ts");
-  return users.createUserInternal(osrs_name, disc_name, forum_name, Roles.MEMBER, hashedPass);
+  return users.createUserInternal(osrsName, discName, forumName, Roles.MEMBER, hashedPass);
 }
 
 /**
- * Finds a user by any identifier (userId, osrs_name, disc_name, or forum_name).
- * @param identifier - Any user identifier (name or ID).
- * @returns The user data or null if not found.
+ * Finds a user by any identifier (userId, osrsName, discName, or forumName).
  */
 async function findUserByIdentifier(identifier: string): Promise<ActorData | null> {
   // First try as userId
   let user = await cache.get<ActorData>(`user:${identifier}`);
   if (user) return user;
 
-  // Try as osrs_name
+  // Try as osrsName
   const osrsKey = `user:osrs:${identifier}`;
   const osrsUserId = await cache.get<string>(osrsKey);
   if (osrsUserId) {
@@ -81,7 +68,7 @@ async function findUserByIdentifier(identifier: string): Promise<ActorData | nul
     if (user) return user;
   }
 
-  // Try as disc_name
+  // Try as discName
   const discKey = `user:discord:${identifier}`;
   const discUserId = await cache.get<string>(discKey);
   if (discUserId) {
@@ -89,7 +76,7 @@ async function findUserByIdentifier(identifier: string): Promise<ActorData | nul
     if (user) return user;
   }
 
-  // Try as forum_name
+  // Try as forumName
   const forumKey = `user:forum:${identifier}`;
   const forumUserId = await cache.get<string>(forumKey);
   if (forumUserId) {
@@ -178,5 +165,5 @@ export {
   requireRole,
   hashPassword,
   verifyPassword,
-  type ActorData
 };
+export type { ActorData };

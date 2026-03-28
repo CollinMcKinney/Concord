@@ -11,7 +11,7 @@ import * as cache from "../ephemeral/cache.ts";
 import { Roles, type RoleType, getMinimumRoleForCommand } from "../persistent/permissions.ts";
 import * as limits from "../persistent/limits.ts";
 import * as user from "../persistent/users.ts";
-import type { UserData } from "../persistent/users.ts";
+import type { DbUser } from "../persistent/users.ts";
 
 import * as packets from "../ephemeral/packets.ts";
 import type { ActorInfo, PacketData, PacketObject, SerializedPacket } from "../ephemeral/packets.ts";
@@ -102,11 +102,8 @@ export const authenticate = apiCommand("authenticate", auth.authenticate);
 export const verifySession = apiCommand("verifySession", auth.verifySession);
 
 // ============================================================================
-// Cache Exports
+// Cache Exports (removed - Redis is ephemeral)
 // ============================================================================
-
-export const saveState = apiCommand("saveState", cache.saveState);
-export const loadState = apiCommand("loadState", cache.loadState);
 
 // ============================================================================
 // Packet Management Exports
@@ -331,8 +328,6 @@ export const updateLimits = apiCommand("updateLimits", async (_sessionToken: str
 const apiModule = {
   authenticate,
   verifySession,
-  saveState,
-  loadState,
   addPacket,
   getPackets,
   deletePacket,
@@ -459,7 +454,7 @@ apiRouter.post("/root", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid or expired session token" });
     }
 
-    const userData = await cache.get<UserData>(`user:${userId}`);
+    const userData = await cache.get<DbUser>(`user:${userId}`);
     if (!userData || userData.role !== Roles.ROOT) {
       return res.status(403).json({ error: "ROOT access required" });
     }
@@ -667,7 +662,7 @@ apiRouter.post("/call", async (req: Request, res: Response) => {
   if (parsedArgs.length > 0 && typeof parsedArgs[0] === 'string') {
     try {
       const actor = await auth.getVerifiedActor(parsedArgs[0]);
-      userIdentifier = actor.osrs_name || actor.disc_name || actor.forum_name || actor.id.slice(0, 8);
+      userIdentifier = actor.osrsName || actor.discName || actor.forumName || actor.id.slice(0, 8);
     } catch {
       // Invalid session, keep anonymous
     }

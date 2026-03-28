@@ -64,8 +64,7 @@ function updateBreadcrumbs(view, params) {
     prefixes: 'Message Suppression',
     commandRoles: 'Permissions',
     discord: 'Discord',
-    limits: 'Limits',
-    system: 'System'
+    limits: 'Limits'
   };
 
   let html = '<span class="breadcrumb-item" data-action="navigate" data-view="home">Home</span>';
@@ -133,9 +132,6 @@ async function loadCurrentView() {
         break;
       case 'limits':
         await window.loadLimitsView();
-        break;
-      case 'system':
-        await window.loadSystemView();
         break;
       default:
         await window.loadPacketsView();

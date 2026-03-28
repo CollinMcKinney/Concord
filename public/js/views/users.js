@@ -3,7 +3,6 @@
  */
 
 async function loadUsersView() {
-  // Check if credentials are set
   const identifier = document.getElementById('rootCredentials').value.trim();
   const hasCredential = document.getElementById('rootPassword').value.length > 0 || sessionStorage.getItem('sessionToken');
   if (!identifier || !hasCredential) {
@@ -11,17 +10,19 @@ async function loadUsersView() {
     return;
   }
 
-  // Check permissions
   if (!permissions.canAccessView('users')) {
     permissions.showPermissionDeniedView(document.getElementById('contentPanel'), 'users');
     return;
   }
 
+  await loadView('users', renderUsersView);
+}
+
+async function renderUsersView() {
   try {
     const users = await apiCall('listUsers');
     state.users = users || [];
   } catch (error) {
-    // Permission denied or other error
     permissions.showPermissionDeniedView(document.getElementById('contentPanel'), 'users');
     return;
   }
@@ -29,57 +30,34 @@ async function loadUsersView() {
   state.usersCurrentTab = state.usersCurrentTab || 'all';
 
   // Build role counts
-  const roleNames = {
-    0: 'BLOCKED',
-    1: 'GUEST',
-    2: 'MEMBER',
-    3: 'MODERATOR',
-    4: 'ADMIN',
-    5: 'OWNER',
-    6: 'ROOT'
-  };
-  const roleEmojis = {
-    'BLOCKED': '🚫',
-    'GUEST': '👤',
-    'MEMBER': '⭐',
-    'MODERATOR': '🛡️',
-    'ADMIN': '⚙️',
-    'OWNER': '👑',
-    'ROOT': '🔱'
-  };
-  
   const roleCounts = {};
-  for (let i = 0; i <= 5; i++) {
-    roleCounts[i] = 0;
-  }
-  
+  for (let i = 0; i <= 5; i++) roleCounts[i] = 0;
   for (const user of state.users) {
     const role = user.role != null ? user.role : 2;
-    if (role >= 0 && role <= 5) {
-      roleCounts[role]++;
-    }
+    if (role >= 0 && role <= 5) roleCounts[role]++;
   }
 
-  const contentPanel = document.getElementById('contentPanel');
-  
-  // Filter users by selected role tab
-  let filteredUsers = state.usersCurrentTab === 'all'
-    ? state.users
-    : state.users.filter(u => (u.role != null ? u.role : 2) === parseInt(state.usersCurrentTab));
-
-  // Filter by search query
+  // Filter users
+  let filteredUsers = state.usersCurrentTab === 'all' ? state.users : state.users.filter(u => (u.role != null ? u.role : 2) === parseInt(state.usersCurrentTab));
   if (state.usersSearchQuery) {
     const query = state.usersSearchQuery.toLowerCase();
     filteredUsers = filteredUsers.filter(u => {
-      const osrs = (u.osrs_name || '').toLowerCase();
-      const disc = (u.disc_name || '').toLowerCase();
-      const forum = (u.forum_name || '').toLowerCase();
+      const osrs = (u.osrsName || '').toLowerCase();
+      const disc = (u.discName || '').toLowerCase();
+      const forum = (u.forumName || '').toLowerCase();
       const id = (u.id || '').toLowerCase();
       return osrs.includes(query) || disc.includes(query) || forum.includes(query) || id.includes(query);
     });
   }
 
-  // Define tab order: All, Member, Guest, Blocked, Moderator, Admin, Owner
+  // Update UI
+  document.getElementById('users-total-count').textContent = `${state.users.length} total`;
+  renderUsersRoleTabs(roleCounts, filteredUsers);
+  renderUsersResults(filteredUsers);
+}
+
+function renderUsersRoleTabs(roleCounts, filteredUsers) {
+  const container = document.getElementById('users-role-tabs');
   const tabOrder = [
     { key: 'all', name: 'All', emoji: '👥', count: state.users.length },
     { key: '2', name: 'MEMBER', emoji: '⭐', count: roleCounts[2] },
@@ -90,52 +68,27 @@ async function loadUsersView() {
     { key: '5', name: 'OWNER', emoji: '👑', count: roleCounts[5] }
   ];
 
-  contentPanel.innerHTML = `
-    <div class="content-panel-header">
-      <h2 class="content-panel-title">
-        👤 Users
-        <span class="compact-badge compact-badge-status">${state.users.length} total</span>
-      </h2>
-      <div class="content-panel-actions">
-        <button type="button" class="primary-button" data-action="open-create-user" title="Create a new user">+ Add User</button>
-        <button type="button" class="secondary-button" data-action="refresh" title="Reload this view from the cache">↻ Refresh</button>
-      </div>
-    </div>
-    <div class="content-panel-body">
-      <!-- Sub-tabs for user roles -->
-      <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; flex-wrap: wrap;">
-        ${tabOrder.map(tab => `
-          <button
-            type="button"
-            class="secondary-button"
-            data-action="set-users-tab" data-tab="${tab.key}"
-            style="background: ${state.usersCurrentTab === tab.key ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.usersCurrentTab === tab.key ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
-            ${tab.emoji} ${tab.name} (${tab.count})
-          </button>
-        `).join('')}
-      </div>
+  container.innerHTML = tabOrder.map(tab => `
+    <button type="button" class="secondary-button" data-action="set-users-tab" data-tab="${tab.key}"
+      style="background: ${state.usersCurrentTab === tab.key ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.usersCurrentTab === tab.key ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
+      ${tab.emoji} ${tab.name} (${tab.count})
+    </button>
+  `).join('');
+}
 
-      <!-- Search bar -->
-      <div style="margin-bottom: 16px;">
-        <input type="text" id="usersSearchInput" placeholder="Search users..."
-          data-action="search-users"
-          autocomplete="off" name="usersSearch"
-          value="${escapeHtml(state.usersSearchQuery || '')}"
-          style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
+function renderUsersResults(filteredUsers) {
+  const container = document.getElementById('users-results');
+  if (filteredUsers.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">👤</div>
+        <div class="empty-state-title">No Users</div>
+        <div class="empty-state-description">${state.usersCurrentTab === 'all' ? 'No users found. Click "Add User" to create one.' : 'No users with this role yet.'}</div>
       </div>
-
-      <!-- Results container -->
-      <div id="usersResults">
-        ${filteredUsers.length === 0 ? `
-          <div class="empty-state">
-            <div class="empty-state-icon">👤</div>
-            <div class="empty-state-title">No Users</div>
-            <div class="empty-state-description">${state.usersCurrentTab === 'all' ? 'No users found in the cache. Click "Add User" to create one.' : `No users with this role yet.`}</div>
-          </div>
-        ` : filteredUsers.map(user => renderUserCard(user)).join('')}
-      </div>
-    </div>
-  `;
+    `;
+    return;
+  }
+  container.innerHTML = filteredUsers.map(user => renderUserCard(user)).join('');
 }
 
 function handleUsersSearch(inputElement) {
@@ -150,9 +103,9 @@ function handleUsersSearch(inputElement) {
   if (state.usersSearchQuery) {
     const query = state.usersSearchQuery.toLowerCase();
     filteredUsers = filteredUsers.filter(u => {
-      const osrs = (u.osrs_name || '').toLowerCase();
-      const disc = (u.disc_name || '').toLowerCase();
-      const forum = (u.forum_name || '').toLowerCase();
+      const osrs = (u.osrsName || '').toLowerCase();
+      const disc = (u.discName || '').toLowerCase();
+      const forum = (u.forumName || '').toLowerCase();
       const id = (u.id || '').toLowerCase();
       return osrs.includes(query) || disc.includes(query) || forum.includes(query) || id.includes(query);
     });
@@ -184,7 +137,7 @@ function renderUserCard(user) {
   const roleValue = user.role;
   const roleName = typeof roleValue === 'number' ? getRoleName(roleValue) : String(roleValue || 'Unknown');
   const roleColor = getRoleColor(roleValue);
-  const displayName = user.osrs_name || user.disc_name || 'User';
+  const displayName = user.osrsName || user.discName || 'User';
 
   const canChangeRole = permissions.canPerformAction('changeRole');
   const canDeleteUser = permissions.canPerformAction('deleteUser');
@@ -194,13 +147,13 @@ function renderUserCard(user) {
     <div class="compact-card" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(displayName)}">
       <div class="compact-card-icon" style="background: ${roleColor}20; border-color: ${roleColor}40;" title="User ID: ${escapeHtml(user.id)}">👤</div>
       <div class="compact-card-body">
-        <div class="compact-card-title">${escapeHtml(user.osrs_name || user.disc_name || user.forum_name || 'Unnamed')}</div>
+        <div class="compact-card-title">${escapeHtml(user.osrsName || user.discName || user.forumName || 'Unnamed')}</div>
         <div class="compact-card-meta">
           <span class="compact-badge compact-badge-role" style="background: ${roleColor}30; color: ${roleColor};">${escapeHtml(roleName)}</span>
           <span class="info-pill">🆔 ${escapeHtml(user.id.slice(-8))}</span>
-          ${user.osrs_name ? `<span class="info-pill">🎮 ${escapeHtml(user.osrs_name)}</span>` : ''}
-          ${user.disc_name ? `<span class="info-pill">💬 ${escapeHtml(user.disc_name)}</span>` : ''}
-          ${user.forum_name ? `<span class="info-pill">📝 ${escapeHtml(user.forum_name)}</span>` : ''}
+          ${user.osrsName ? `<span class="info-pill">🎮 ${escapeHtml(user.osrsName)}</span>` : ''}
+          ${user.discName ? `<span class="info-pill">💬 ${escapeHtml(user.discName)}</span>` : ''}
+          ${user.forumName ? `<span class="info-pill">📝 ${escapeHtml(user.forumName)}</span>` : ''}
         </div>
       </div>
       <div class="compact-card-actions">
@@ -247,22 +200,22 @@ async function loadUserDetailView() {
             <span class="compact-badge compact-badge-role" style="background: ${roleColor}30; color: ${roleColor};">${escapeHtml(roleName)}</span>
             <span class="compact-badge compact-badge-status">ID: ${escapeHtml(user.id.slice(-8))}</span>
           </div>
-          ${user.osrs_name ? `
+          ${user.osrsName ? `
             <div class="field">
               <label><span class="tooltip" data-tip="Old School RuneScape character name"><span class="tooltip-icon">?</span></span> OSRS Name</label>
-              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.osrs_name)}</div>
+              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.osrsName)}</div>
             </div>
           ` : ''}
-          ${user.disc_name ? `
+          ${user.discName ? `
             <div class="field">
               <label><span class="tooltip" data-tip="Discord username"><span class="tooltip-icon">?</span></span> Discord Name</label>
-              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.disc_name)}</div>
+              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.discName)}</div>
             </div>
           ` : ''}
-          ${user.forum_name ? `
+          ${user.forumName ? `
             <div class="field">
               <label><span class="tooltip" data-tip="Forum username"><span class="tooltip-icon">?</span></span> Forum Name</label>
-              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.forum_name)}</div>
+              <div style="color: var(--text); font-size: 0.95rem;">${escapeHtml(user.forumName)}</div>
             </div>
           ` : ''}
           ${user.created_at ? `
@@ -278,14 +231,14 @@ async function loadUserDetailView() {
 }
 
 function openCreateUserModal() {
-  const osrs_name = prompt('OSRS name:');
-  if (!osrs_name) return;
-  const disc_name = prompt('Discord name:');
-  const forum_name = prompt('Forum name:');
+  const osrsName = prompt('OSRS name:');
+  if (!osrsName) return;
+  const discName = prompt('Discord name:');
+  const forumName = prompt('Forum name:');
   const password = prompt('Password:');
 
-  if (osrs_name && disc_name && forum_name && password) {
-    apiCall('createUser', [osrs_name, disc_name, forum_name, password]).then(() => {
+  if (osrsName && discName && forumName && password) {
+    apiCall('createUser', [osrsName, discName, forumName, password]).then(() => {
       showToast('User created');
       loadCurrentView();
     }).catch(error => {

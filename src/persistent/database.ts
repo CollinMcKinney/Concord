@@ -1,6 +1,8 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as schema from './schema.ts';
+import { users } from './users.ts';
+import { files } from './files.ts';
+import { config } from './limits.ts';
 
 // ANSI color codes for console output
 const colors = {
@@ -30,7 +32,7 @@ const client = postgres({
 });
 
 // Create Drizzle instance with schema
-export const db = drizzle(client, { schema });
+export const db = drizzle(client, { schema: { users, files, config } });
 
 /**
  * Initializes the PostgreSQL database connection.

@@ -2,23 +2,12 @@
  * Admin Panel - Files View
  */
 
-// Predefined safe MIME types (JavaFX + Discord compatible)
 const PREDEFINED_MIME_TYPES = [
-  // Images
-  { type: 'image/png', emoji: '🖼️' },
-  { type: 'image/jpeg', emoji: '🖼️' },
-  { type: 'image/gif', emoji: '🖼️' },
-  { type: 'image/webp', emoji: '🖼️' },
-
-  // Videos
-  { type: 'video/mp4', emoji: '🎬' },
-  { type: 'video/webm', emoji: '🎬' },
-
-  // Audio
-  { type: 'audio/mpeg', emoji: '🎵' },
-  { type: 'audio/wav', emoji: '🎵' }
+  { type: 'image/png', emoji: '🖼️' }, { type: 'image/jpeg', emoji: '🖼️' },
+  { type: 'image/gif', emoji: '🖼️' }, { type: 'image/webp', emoji: '🖼️' },
+  { type: 'video/mp4', emoji: '🎬' }, { type: 'video/webm', emoji: '🎬' },
+  { type: 'audio/mpeg', emoji: '🎵' }, { type: 'audio/wav', emoji: '🎵' }
 ];
-
 const PREDEFINED_TYPE_LIST = PREDEFINED_MIME_TYPES.map(t => t.type);
 
 async function loadFilesView() {
@@ -26,23 +15,23 @@ async function loadFilesView() {
   state.files = allFiles || {};
   state.filesCurrentTab = state.filesCurrentTab || 'all';
 
-  // Get categories
   const categories = await apiCall('getCategories');
   state.filesCategories = categories || ['clan_icons', 'chat_badges', 'branding'];
 
-  // Get allowed MIME types (default to all predefined if empty)
   try {
     const result = await apiCall('getAllowedMimeTypes');
-    const allowedTypes = Array.isArray(result) && result.length > 0 ? result : PREDEFINED_MIME_TYPES.map(t => t.type);
-    state.allowedMimeTypes = allowedTypes;
+    state.allowedMimeTypes = Array.isArray(result) && result.length > 0 ? result : PREDEFINED_MIME_TYPES.map(t => t.type);
   } catch (e) {
     state.allowedMimeTypes = PREDEFINED_MIME_TYPES.map(t => t.type);
   }
 
-  // Put branding first, then sort the rest alphabetically
   const sortedCategories = ['branding', ...state.filesCategories.filter(c => c !== 'branding').sort()];
   state.filesCategories = sortedCategories;
 
+  await loadView('files', renderFilesView);
+}
+
+async function renderFilesView() {
   // Build file counts
   const fileCounts = {};
   let totalFiles = 0;
@@ -51,127 +40,84 @@ async function loadFilesView() {
     totalFiles += fileCounts[category];
   }
 
-  // Get allowed MIME types
   const allowedTypes = Array.isArray(state.allowedMimeTypes) ? state.allowedMimeTypes : [];
-  const predefinedTypes = PREDEFINED_MIME_TYPES.map(t => t.type);
-  const customTypes = allowedTypes.filter(t => !predefinedTypes.includes(t));
-  
-  // Build combined list of all MIME types (predefined + custom)
+  const customTypes = allowedTypes.filter(t => !PREDEFINED_TYPE_LIST.includes(t));
   const allMimeTypes = [
     ...PREDEFINED_MIME_TYPES.map(item => ({ ...item, isPredefined: true })),
     ...customTypes.map(type => ({ type, emoji: '📄', isPredefined: false }))
   ];
 
-  // Get files for current category with search filtering
+  // Update UI
+  document.getElementById('files-total-count').textContent = `${totalFiles} total`;
+  renderFilesMimeTypes(allowedTypes, allMimeTypes);
+  renderFilesCategoryTabs(fileCounts);
+  renderFilesResults();
+}
+
+function renderFilesMimeTypes(allowedTypes, allMimeTypes) {
+  const section = document.getElementById('files-mime-types-section');
+  const grid = document.getElementById('files-mime-types-grid');
+  
+  if (!permissions.canPerformAction('setAllowedMimeTypes')) {
+    section.style.display = 'none';
+    return;
+  }
+  
+  section.style.display = 'block';
+  grid.innerHTML = `
+    ${allMimeTypes.map(item => {
+      const isEnabled = allowedTypes.includes(item.type);
+      const dotColor = isEnabled ? 'var(--accent)' : '#ff8585';
+      const dotShadow = isEnabled ? '0 0 12px rgba(141, 240, 181, 0.8)' : '0 0 12px rgba(255, 133, 133, 0.8)';
+      const isCustom = !item.isPredefined;
+      return `
+        <button type="button" data-action="toggle-mime-type" data-type="${item.type}" data-enabled="${!isEnabled}"
+          style="display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: var(--text); font-size: 0.8rem;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; box-shadow: ${dotShadow};"></span>
+            <span>${item.emoji || '📄'} ${item.type}</span>
+          </div>
+          ${isCustom ? `<span data-action="remove-mime-type" data-type="${item.type}" style="background: none; border: none; color: #ff8585; cursor: pointer; padding: 2px 6px; font-size: 1.1rem;">🗑️</span>` : ''}
+        </button>
+      `;
+    }).join('')}
+    <button type="button" data-action="open-add-mime-type"
+      style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(141, 240, 181, 0.1); border: 1px dashed var(--accent); color: var(--accent); font-size: 1.2rem;">
+      <span>➕</span><span style="font-size: 0.75rem;">Add Type</span>
+    </button>
+  `;
+}
+
+function renderFilesCategoryTabs(fileCounts) {
+  const container = document.getElementById('files-category-tabs');
+  container.innerHTML = `
+    <button type="button" class="secondary-button" data-action="set-files-tab" data-tab="all"
+      style="background: ${state.filesCurrentTab === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.filesCurrentTab === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
+      📋 All (${Object.values(fileCounts).reduce((a, b) => a + b, 0)})
+    </button>
+    ${state.filesCategories.map(cat => `
+      <button type="button" class="secondary-button" data-action="set-files-tab" data-tab="${cat}"
+        style="background: ${state.filesCurrentTab === cat ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.filesCurrentTab === cat ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
+        ${getCategoryIcon(cat)} ${formatCategoryName(cat)} (${fileCounts[cat]})
+      </button>
+    `).join('')}
+  `;
+}
+
+function renderFilesResults() {
+  const container = document.getElementById('files-results');
   const currentFiles = (state.files[state.filesCurrentTab] || []).filter(f => {
     if (!state.filesSearchQuery) return true;
     const query = state.filesSearchQuery.toLowerCase();
     return f.name.toLowerCase().includes(query) || f.category.toLowerCase().includes(query);
   });
 
-  contentPanel.innerHTML = `
-    <div class="content-panel-header">
-      <h2 class="content-panel-title">
-        📁 Files
-        <span class="compact-badge compact-badge-status">${totalFiles} total</span>
-      </h2>
-      <div class="content-panel-actions">
-        <button type="button" class="primary-button" data-action="open-upload-modal" title="Upload a new file">+ Upload File</button>
-        <button type="button" class="secondary-button" data-action="open-add-category" title="Create a new category">📁 Add Folder</button>
-        <button type="button" class="secondary-button" data-action="refresh" title="Reload this view from the cache">↻ Refresh</button>
-      </div>
-    </div>
-    <div class="content-panel-body">
-      <!-- Allowed MIME Types Section (ROOT only) -->
-      ${permissions.canPerformAction('setAllowedMimeTypes') ? `
-        <div class="compact-card" style="display: block; margin-bottom: 16px;">
-          <div class="compact-card-body">
-            <div class="field">
-              <label>🔒 Allowed File Types</label>
-              <div style="color: var(--muted); font-size: 0.85rem; margin-bottom: 12px;">Only these MIME types can be uploaded. ROOT only.</div>
+  if (currentFiles.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No Files</div><div class="empty-state-description">No files found in this category.</div></div>`;
+    return;
+  }
 
-              <!-- All MIME types (predefined + custom) -->
-              <div style="margin-bottom: 12px;">
-                <div style="font-size: 0.8rem; color: var(--muted); margin-bottom: 6px;">MIME Types (click to toggle):</div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px;">
-                  ${allMimeTypes.map(item => {
-                    const isEnabled = allowedTypes.includes(item.type);
-                    const dotColor = isEnabled ? 'var(--accent)' : '#ff8585';
-                    const dotShadow = isEnabled ? '0 0 12px rgba(141, 240, 181, 0.8)' : '0 0 12px rgba(255, 133, 133, 0.8)';
-                    const isCustom = !item.isPredefined;
-                    return `
-                      <button type="button" data-action="toggle-mime-type" data-type="${item.type}" data-enabled="${!isEnabled}"
-                        style="display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: var(--text); font-size: 0.8rem; position: relative;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                          <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; box-shadow: ${dotShadow};"></span>
-                          <span>${item.emoji || '📄'} ${item.type}</span>
-                        </div>
-                        ${isCustom ? `<span data-action="remove-mime-type" data-type="${item.type}" style="background: none; border: none; color: #ff8585; cursor: pointer; padding: 2px 6px; font-size: 1.1rem; line-height: 1;">🗑️</span>` : ''}
-                      </button>
-                    `;
-                  }).join('')}
-                  <!-- Add custom type button -->
-                  <button type="button" data-action="open-add-mime-type"
-                    style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(141, 240, 181, 0.1); border: 1px dashed var(--accent); color: var(--accent); font-size: 1.2rem;">
-                    <span>➕</span>
-                    <span style="font-size: 0.75rem;">Add Type</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ` : ''}
-      
-      <!-- Sub-tabs for file categories -->
-      <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; flex-wrap: wrap;">
-        <button
-          type="button"
-          class="secondary-button"
-          data-action="set-files-tab" data-tab="all"
-          style="background: ${state.filesCurrentTab === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.filesCurrentTab === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
-          📋 All (${totalFiles})
-        </button>
-        ${state.filesCategories.map(cat => `
-          <button
-            type="button"
-            class="secondary-button"
-            data-action="set-files-tab" data-tab="${cat}"
-            style="background: ${state.filesCurrentTab === cat ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.filesCurrentTab === cat ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
-            ${getCategoryIcon(cat)} ${formatCategoryName(cat)} (${fileCounts[cat]})
-          </button>
-        `).join('')}
-      </div>
-
-      <!-- Search bar -->
-      <div style="margin-bottom: 16px;">
-        <input type="text" id="filesSearchInput" placeholder="Search files..."
-          data-action="search-files"
-          autocomplete="off" name="filesSearch"
-          value="${escapeHtml(state.filesSearchQuery || '')}"
-          style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
-      </div>
-
-      <!-- Results container -->
-      <div id="filesResults">
-        ${totalFiles === 0 && !state.filesSearchQuery ? `
-          <div class="empty-state">
-            <div class="empty-state-icon">📁</div>
-            <div class="empty-state-title">No Files</div>
-            <div class="empty-state-description">No files found in the cache. Click "Upload File" to add one.</div>
-          </div>
-        ` : state.filesCurrentTab === 'all' ? `
-          ${Object.entries(state.files).filter(([_, files]) => files.length > 0).map(([cat, files]) => `
-            <h3 style="margin: 16px 0 8px; color: var(--accent);">${getCategoryIcon(cat)} ${formatCategoryName(cat)} (${files.length})</h3>
-            ${files.filter(f => !state.filesSearchQuery || f.name.toLowerCase().includes(state.filesSearchQuery.toLowerCase())).map(file => renderFileCard(file)).join('')}
-          `).join('')}
-        ` : `
-          <h3 style="margin: 16px 0 8px; color: var(--accent);">${getCategoryIcon(state.filesCurrentTab)} ${formatCategoryName(state.filesCurrentTab)} (${fileCounts[state.filesCurrentTab]})</h3>
-          ${currentFiles.length === 0 ? '<div class="empty-state" style="padding: 20px;"><div class="empty-state-description">No files in this category yet.</div></div>' : currentFiles.map(file => renderFileCard(file)).join('')}
-        `}
-      </div>
-    </div>
-  `;
+  container.innerHTML = currentFiles.map(file => renderFileCard(file)).join('');
 }
 
 function handleFilesSearch(inputElement) {

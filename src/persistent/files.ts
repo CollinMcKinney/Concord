@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { sAdd, sMembers, sRem, set, get, del, exists } from "../ephemeral/cache.ts";
 import { getLimitsConfig } from "./limits.ts";
+import { pgTable, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +17,24 @@ const colors = {
   yellow: '\x1b[33m',
   red: '\x1b[31m',
 };
+
+/**
+ * Files table - stores file metadata
+ */
+export const files = pgTable('files', {
+  id: uuid('id').primaryKey(),
+  category: text('category').notNull(),
+  name: text('name').notNull(),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+  uploadedAt: timestamp('uploaded_at').defaultNow(),
+});
+
+/**
+ * File database record type (auto-generated from schema)
+ */
+export type File = typeof files.$inferSelect;
+export type NewFile = typeof files.$inferInsert;
 
 // Default allowed MIME types for file uploads (no SVG due to XSS risk)
 const DEFAULT_ALLOWED_MIME_TYPES = [
@@ -92,8 +111,8 @@ const DEFAULT_CATEGORIES: FileCategory[] = [
  * @throws Error if path is invalid or attempts traversal.
  */
 function getFilePath(category: FileCategory, name: string): string {
-  // Define the base data directory
-  const basePath = path.resolve(__dirname, "../data");
+  // Define the base data directory (project root, not src/)
+  const basePath = path.resolve(__dirname, "../../data");
   
   // Sanitize category - only allow alphanumeric, dashes, underscores
   const safeCategory = path.basename(category.toLowerCase());
@@ -240,7 +259,7 @@ export async function createCategory(name: string): Promise<FileCategory> {
   }
   
   // Create the directory
-  const dir = path.join(__dirname, `../data/${normalizedName}`);
+  const dir = path.join(__dirname, `../../data/${normalizedName}`);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -278,7 +297,7 @@ export async function deleteCategory(name: string): Promise<boolean> {
   await sRem(CATEGORIES_KEY, normalizedName);
 
   // Delete the directory
-  const dir = path.join(__dirname, `../data/${normalizedName}`);
+  const dir = path.join(__dirname, `../../data/${normalizedName}`);
   if (fs.existsSync(dir)) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -313,7 +332,7 @@ export function getMimeType(fileName: string): string {
  * @param category - The file category.
  */
 function ensureFileDir(category: FileCategory): void {
-  const dir = path.join(__dirname, `../data/${category}`);
+  const dir = path.join(__dirname, `../../data/${category}`);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -325,7 +344,7 @@ function ensureFileDir(category: FileCategory): void {
  * @returns The number of files successfully loaded.
  */
 async function loadFilesFromDisk(category: FileCategory): Promise<number> {
-  const filesDir = path.join(__dirname, `../data/${category}`);
+  const filesDir = path.join(__dirname, `../../data/${category}`);
 
   if (!fs.existsSync(filesDir)) {
     console.warn(`${colors.yellow}[files]${colors.reset} Files directory not found: ${filesDir}`);
@@ -520,7 +539,7 @@ export async function initFiles(): Promise<void> {
     }
     
     // Ensure directory exists
-    const dir = path.join(__dirname, `../data/${category}`);
+    const dir = path.join(__dirname, `../../data/${category}`);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }

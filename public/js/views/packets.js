@@ -7,12 +7,14 @@ async function loadPacketsView() {
   const identifier = document.getElementById('rootCredentials').value.trim();
   const hasCredential = document.getElementById('rootPassword').value.length > 0 || sessionStorage.getItem('sessionToken');
   if (!identifier || !hasCredential) {
-    // Show permission denied view for unauthenticated users
-    const contentPanel = document.getElementById('contentPanel');
-    permissions.showPermissionDeniedView(contentPanel, 'auditLogs');
+    permissions.showPermissionDeniedView(document.getElementById('contentPanel'), 'auditLogs');
     return;
   }
 
+  await loadView('packets', renderPacketsView);
+}
+
+async function renderPacketsView() {
   const packets = await apiCall('getPackets', [50]);
   state.packets = packets || [];
   state.packetsCurrentCategory = state.packetsCurrentCategory || 'all';
@@ -36,7 +38,7 @@ async function loadPacketsView() {
     }
   }
 
-  // Filter packets by selected category and subcategory
+  // Filter packets
   let filteredPackets = state.packets;
   if (state.packetsCurrentCategory !== 'all') {
     filteredPackets = filteredPackets.filter(p => {
@@ -59,103 +61,85 @@ async function loadPacketsView() {
     });
   }
 
-  // Get subcategories
+  // Update UI
+  document.getElementById('packets-total-count').textContent = `${state.packets.length} total`;
+  renderPacketsCategoryTabs(categoryCounts);
+  renderPacketsSubcategoryTabs(categoryCounts, subcategoryCounts);
+  renderPacketsResults(filteredPackets, categoryCounts, subcategoryCounts);
+}
+
+function renderPacketsCategoryTabs(categoryCounts) {
+  const container = document.getElementById('packets-category-tabs');
   const uniqueCategories = Object.keys(categoryCounts).sort();
+  
+  let html = `
+    <button type="button" class="secondary-button" data-action="set-packets-category" data-category="all"
+      style="background: ${state.packetsCurrentCategory === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentCategory === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
+      📋 All (${state.packets.length})
+    </button>
+    ${uniqueCategories.map(cat => `
+      <button type="button" class="secondary-button" data-action="set-packets-category" data-category="${cat}"
+        style="background: ${state.packetsCurrentCategory === cat ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentCategory === cat ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
+        ${getCategoryEmoji(cat)} ${cat} (${categoryCounts[cat]})
+      </button>
+    `).join('')}
+  `;
+  
+  container.innerHTML = html;
+}
+
+function renderPacketsSubcategoryTabs(categoryCounts, subcategoryCounts) {
+  const container = document.getElementById('packets-subcategory-tabs');
   const currentSubcategories = state.packetsCurrentCategory !== 'all'
-    ? uniqueCategories
-        .filter(c => c === state.packetsCurrentCategory)
-        .flatMap(cat => {
-          return Object.keys(subcategoryCounts)
-            .filter(k => k.startsWith(cat + '.'))
-            .map(k => k.replace(cat + '.', ''));
-        })
+    ? Object.keys(subcategoryCounts)
+        .filter(k => k.startsWith(state.packetsCurrentCategory + '.'))
+        .map(k => k.replace(state.packetsCurrentCategory + '.', ''))
         .sort()
     : [];
 
-  const contentPanel = document.getElementById('contentPanel');
-  contentPanel.innerHTML = `
-    <div class="content-panel-header">
-      <h2 class="content-panel-title">
-        📋 Audit Logs
-        <span class="compact-badge compact-badge-status">${state.packets.length} total</span>
-      </h2>
-      <div class="content-panel-actions">
-        <button type="button" class="primary-button" data-action="open-add-packet" title="Create a new packet">+ Add Packet</button>
-        <button type="button" class="secondary-button" data-action="refresh" title="Reload this view from the cache">↻ Refresh</button>
-      </div>
-    </div>
-    <div class="content-panel-body">
-      <!-- Main category tabs -->
-      <div style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 8px; flex-wrap: wrap;">
-        <button
-          type="button"
-          class="secondary-button"
-          data-action="set-packets-category" data-category="all"
-          style="background: ${state.packetsCurrentCategory === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentCategory === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
-          📋 All (${state.packets.length})
-        </button>
-        ${uniqueCategories.map(cat => `
-          <button
-            type="button"
-            class="secondary-button"
-            data-action="set-packets-category" data-category="${cat}"
-            style="background: ${state.packetsCurrentCategory === cat ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentCategory === cat ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
-            ${getCategoryEmoji(cat)} ${cat} (${categoryCounts[cat]})
-          </button>
-        `).join('')}
-      </div>
+  if (state.packetsCurrentCategory === 'all' || currentSubcategories.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
 
-      <!-- Search bar -->
-      <div style="margin-bottom: 16px;">
-        <input type="text" id="packetsSearchInput" placeholder="Search packets..."
-          data-action="search-packets"
-          autocomplete="off" name="packetsSearch"
-          value="${escapeHtml(state.packetsSearchQuery || '')}"
-          style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(7, 15, 11, 0.86); color: var(--text); font: inherit; font-size: 0.9rem;">
-      </div>
-
-      <!-- Results container -->
-      <div id="packetsResults">
-        ${renderPacketsResults(filteredPackets, state.packetsCurrentCategory, currentSubcategories, subcategoryCounts, uniqueCategories)}
-      </div>
-    </div>
+  container.style.display = 'flex';
+  let html = `
+    <button type="button" class="secondary-button" data-action="set-packets-subcategory" data-subcategory="all"
+      style="font-size: 0.85rem; background: ${state.packetsCurrentSubcategory === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentSubcategory === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
+      All (${subcategoryCounts[`${state.packetsCurrentCategory}.${state.packetsCurrentSubcategory}`] || state.packets.length})
+    </button>
+    ${currentSubcategories.map(sub => `
+      <button type="button" class="secondary-button" data-action="set-packets-subcategory" data-subcategory="${sub}"
+        style="font-size: 0.85rem; background: ${state.packetsCurrentSubcategory === sub ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentSubcategory === sub ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
+        ${sub} (${subcategoryCounts[`${state.packetsCurrentCategory}.${sub}`] || 0})
+      </button>
+    `).join('')}
   `;
+  
+  container.innerHTML = html;
 }
 
-function renderPacketsResults(filteredPackets, currentCategory, currentSubcategories, subcategoryCounts, uniqueCategories) {
+function renderPacketsResults(filteredPackets, categoryCounts, subcategoryCounts) {
+  const container = document.getElementById('packets-results');
+  const currentSubcategories = state.packetsCurrentCategory !== 'all'
+    ? Object.keys(subcategoryCounts)
+        .filter(k => k.startsWith(state.packetsCurrentCategory + '.'))
+        .map(k => k.replace(state.packetsCurrentCategory + '.', ''))
+        .sort()
+    : [];
+
   if (filteredPackets.length === 0) {
-    return `
+    container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">📦</div>
         <div class="empty-state-title">No Packets</div>
         <div class="empty-state-description">No packets found matching your criteria.</div>
       </div>
     `;
+    return;
   }
-  
-  return `
-    <!-- Subcategory tabs (only show when a category is selected) -->
-    ${currentCategory !== 'all' && currentSubcategories.length > 0 ? `
-      <div style="display: flex; gap: 6px; margin-bottom: 16px; padding-left: 8px; flex-wrap: wrap;">
-        <button 
-          type="button" 
-          class="secondary-button"
-          data-action="set-packets-subcategory" data-subcategory="all"
-          style="font-size: 0.85rem; background: ${state.packetsCurrentSubcategory === 'all' ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentSubcategory === 'all' ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
-          All (${filteredPackets.length})
-        </button>
-        ${currentSubcategories.map(sub => `
-          <button 
-            type="button" 
-            class="secondary-button"
-            data-action="set-packets-subcategory" data-subcategory="${sub}"
-            style="font-size: 0.85rem; background: ${state.packetsCurrentSubcategory === sub ? 'rgba(141, 240, 181, 0.2)' : 'transparent'}; border-color: ${state.packetsCurrentSubcategory === sub ? 'var(--accent)' : 'rgba(255, 255, 255, 0.1)'}">
-            ${sub} (${subcategoryCounts[`${currentCategory}.${sub}`] || 0})
-          </button>
-        `).join('')}
-      </div>
-    ` : ''}
-    
+
+  container.innerHTML = `
     ${filteredPackets.slice(0, 20).map(packet => renderPacketCard(packet)).join('')}
   `;
 }

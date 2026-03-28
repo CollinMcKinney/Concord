@@ -1,0 +1,32 @@
+<!-- Discord View -->
+<div class="content-panel-header" style="position: relative;">
+  <h2 class="content-panel-title">🎮 Discord</h2>
+  <div class="content-panel-actions">
+    <button type="button" class="secondary-button" data-action="refresh" title="Refresh">↻ Refresh</button>
+  </div>
+  <button type="button" class="status-pill" data-action="toggle-discord" title="Click to connect/disconnect" style="cursor: pointer; border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.05); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);">
+    <span class="status-dot" id="discord-status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%;"></span>
+    <span id="discord-status-text">Disconnected</span>
+  </button>
+</div>
+
+<div class="compact-card" style="cursor: default; margin-bottom: 16px; padding: 10px 12px;">
+  <div class="compact-card-icon" style="background: rgba(141, 240, 181, 0.1); border-color: rgba(141, 240, 181, 0.3); flex-shrink: 0;">🌐</div>
+  <div class="compact-card-body" style="flex: 1;">
+    <button type="button" class="secondary-button" data-action="open-developer-portal" style="font-size: 0.9rem; padding: 6px 10px; width: fit-content;">Open Discord Developer Portal</button>
+  </div>
+</div>
+
+<div class="content-panel-body">
+  <!-- Developer Portal Settings -->
+  <div style="font-size: 0.8rem; color: var(--text-secondary); margin: 16px 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">🌐 Developer Portal</div>
+  <div id="discord-developer-settings"></div>
+  
+  <!-- Bot Settings -->
+  <div style="font-size: 0.8rem; color: var(--text-secondary); margin: 24px 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">🤖 Bot Settings</div>
+  <div id="discord-bot-settings"></div>
+  
+  <!-- Guild Settings -->
+  <div style="font-size: 0.8rem; color: var(--text-secondary); margin: 24px 0 8px 0; text-transform: uppercase; letter-spacing: 0.5px;">🏰 Guild Settings</div>
+  <div id="discord-guild-settings"></div>
+</div>

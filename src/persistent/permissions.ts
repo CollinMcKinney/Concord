@@ -46,11 +46,7 @@ const CONFIG_KEY = "config:runtime";
  * Default suppressed strings for message filtering.
  */
 const DEFAULT_SUPPRESSED_PREFIXES: string[] = [
-  "To talk in your clan's channel, start each line of chat with // or /c.",
-  "To talk in your clan chat, start each line with // or /c",
-  "To talk in your clan's channel, start each line of chat with // or /c",
-  "clan channel",
-  "clan chat",
+  "To talk in your clan's channel, start each line of chat with // or /c."
 ];
 
 /**

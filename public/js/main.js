@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Restore last viewed tab on page refresh
   const savedView = sessionStorage.getItem('currentView');
-  if (savedView && ['packets', 'users', 'files', 'prefixes', 'commandRoles', 'discord', 'system'].includes(savedView)) {
+  if (savedView && ['packets', 'users', 'files', 'prefixes', 'commandRoles', 'discord'].includes(savedView)) {
     state.currentView = savedView;
     // Update nav items to reflect restored view
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -196,16 +196,6 @@ async function handleGlobalClick(e) {
     openCreateUserModal();
     return;
   }
-  
-  if (target.matches('[data-action="save-state"]')) {
-    saveState();
-    return;
-  }
-
-  if (target.matches('[data-action="load-state"]')) {
-    loadState();
-    return;
-  }
 
   if (target.matches('[data-action="refresh"]')) {
     loadCurrentView();
@@ -306,7 +296,7 @@ function handleContentPanelClick(e) {
       }
       const userToReset = state.users.find(u => u.id === userId);
       if (userToReset) {
-        openResetPasswordModal(userId, userToReset.osrs_name || userToReset.disc_name || userToReset.forum_name || userId);
+        openResetPasswordModal(userId, userToReset.osrsName || userToReset.discName || userToReset.forumName || userId);
       }
       break;
     case 'view-json-user':

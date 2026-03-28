@@ -1,5 +1,6 @@
 import { createClient } from "redis";
 import * as cache from "../ephemeral/cache.ts";
+import { pgTable, text, jsonb } from 'drizzle-orm/pg-core';
 
 // ANSI color codes for console output
 const colors = {
@@ -9,6 +10,20 @@ const colors = {
   yellow: '\x1b[33m',
   red: '\x1b[31m',
 };
+
+/**
+ * Config table - stores server configuration
+ */
+export const config = pgTable('config', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull().default({}),
+});
+
+/**
+ * Config database record type (auto-generated from schema)
+ */
+export type Config = typeof config.$inferSelect;
+export type NewConfig = typeof config.$inferInsert;
 
 // Redis client for rate limiting
 const redisHost = process.env.REDIS_HOST ?? 'redis';

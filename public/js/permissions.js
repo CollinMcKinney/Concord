@@ -47,17 +47,8 @@ const ACTION_PERMISSIONS = {
   setFavicon: ROLES.ADMIN,
   setAllowedMimeTypes: ROLES.ROOT,
 
-  // Prefixes
-  addPrefix: ROLES.ADMIN,
-  deletePrefix: ROLES.ADMIN,
-
   // Command Roles
   editCommandRole: ROLES.ROOT,
-
-  // System
-  saveState: ROLES.ROOT,
-  loadState: ROLES.ROOT,
-  editEnvVar: ROLES.ROOT,
 
   // Discord
   updateDiscordConfig: ROLES.ROOT,
@@ -133,7 +124,7 @@ async function loadUserPermissions() {
     const users = await apiCall('listUsers');
     if (users && Array.isArray(users)) {
       // Find ROOT user to get actual role
-      const rootUser = users.find(u => u.osrs_name === 'ROOT');
+      const rootUser = users.find(u => u.osrsName === 'ROOT');
       if (rootUser) {
         state.currentUserRole = rootUser.role || ROLES.ROOT;
         console.log('[Permissions] Found ROOT user, role:', state.currentUserRole);
