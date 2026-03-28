@@ -7,19 +7,20 @@ import express from "express";
 import helmet from "helmet";
 
 import { initDiscord } from "./discord.ts";
-import { initStorage, saveState, loadState, startAutoSaveDynamic, client, stopAutoSave } from "./cache.ts";
-import { initFiles, updateUploadSizeLimit } from "./files.ts";
-import filesRouter from "./filesRouter.ts";
-import { Packet, type SerializedPacket } from "./packet.ts";
+import { initStorage, saveState, loadState, startAutoSaveDynamic, client, stopAutoSave } from "./ephemeral/cache.ts";
+import { initFiles, updateUploadSizeLimit } from "./persistent/files.ts";
+import { Packet, type SerializedPacket } from "./ephemeral/packets.ts";
 import { attachToServer, broadcast, closeWebSocketServer } from "./runelite.ts";
-import { initializeRoot, updateSessionTTL } from "./user.ts";
-import { initLimits } from "./limits.ts";
+import { initializeRoot } from "./persistent/users.ts";
+import { updateSessionTTL } from "./ephemeral/sessions.ts";
+import { initLimits } from "./persistent/limits.ts";
 import apiRouter from "./api/index.ts";
 
 type Express = express.Express;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const publicDir = path.join(__dirname, "../public");
 
 // ANSI color codes for console output
 const colors = {
@@ -59,12 +60,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Serve static files from public folder (but not index.html - that's handled by /dashboard route)
-app.use(express.static(path.join(__dirname, "public"), { index: false }));
+app.use(express.static(publicDir, { index: false }));
 
 // Dashboard router - UI for all authenticated users (not just admins)
 app.use("/dashboard", apiRouter);
-app.use("/files", filesRouter);
-app.use("/modals", express.static(path.join(__dirname, "public", "modals")));
+app.use("/modals", express.static(path.join(publicDir, "modals")));
 
 // Optional: simple broadcast endpoint for testing
 app.post("/broadcast", (req, res) => {

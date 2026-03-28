@@ -1,9 +1,8 @@
-import crypto from "crypto";
-
 import argon2 from "argon2";
-import * as cache from "./cache.ts";
-import { Roles, type RoleType } from "./permission.ts";
-import { getLimitsConfig } from "./limits.ts";
+import * as cache from "./ephemeral/cache.ts";
+import { hashSessionToken, createSession, verifySession as verifyUserSession } from "./ephemeral/sessions.ts";
+import { Roles, type RoleType } from "./persistent/permissions.ts";
+import { getLimitsConfig } from "./persistent/limits.ts";
 
 // ANSI color codes for console output
 const colors = {
@@ -13,25 +12,6 @@ const colors = {
   yellow: '\x1b[33m',
   red: '\x1b[31m',
 };
-
-// Session TTL loaded from cache
-let SESSION_TTL_HOURS = 24;
-let SESSION_TTL_MS = SESSION_TTL_HOURS * 60 * 60 * 1000;
-
-export async function updateSessionTTL(): Promise<void> {
-  const config = await getLimitsConfig();
-  SESSION_TTL_HOURS = parseInt(config.SESSION_TTL_HOURS) || 24;
-  SESSION_TTL_MS = SESSION_TTL_HOURS * 60 * 60 * 1000;
-}
-
-/**
- * Hashes a raw session token before it is stored or looked up in Redis.
- * @param token - The raw session token string to hash.
- * @returns The SHA-256 hash of the provided token.
- */
-function hashSessionToken(token: string): string {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
 
 /**
  * Hash a password using Argon2 (with automatic salting)
@@ -66,19 +46,6 @@ interface ActorData {
   created_at?: number | Date;
 }
 
-interface SessionData {
-  userId: string;
-  created: number;
-  expires: number;
-}
-
-/**
- * Get session TTL in milliseconds (calculated from current runtime config)
- */
-function getSessionTTLMS(): number {
-  return SESSION_TTL_HOURS * 60 * 60 * 1000;
-}
-
 /**
  * Creates a new member account directly from registration details.
  * @param osrs_name - The user's in-game RuneScape name to store on the new account.
@@ -92,7 +59,7 @@ async function register(
   forum_name: string,
   hashedPass: string
 ): Promise<ActorData> {
-  const users = await import("./user.ts");
+  const users = await import("./persistent/users.ts");
   return users.createUserInternal(osrs_name, disc_name, forum_name, Roles.MEMBER, hashedPass);
 }
 
@@ -157,16 +124,8 @@ async function authenticate(identifier: string, password: string): Promise<strin
     return null;
   }
 
-  // Create a new session token
-  const sessionToken = crypto.randomBytes(16).toString("hex");
-  const sessionTokenHash = hashSessionToken(sessionToken);
-  const newSession: SessionData = {
-    userId,
-    created: Date.now(),
-    expires: Date.now() + getSessionTTLMS()
-  };
-
-  await cache.set(`session:${sessionTokenHash}`, newSession);
+  // Create a new session
+  const sessionToken = await createSession(userId);
 
   console.log(`${colors.cyan}[auth]${colors.reset} Authentication successful, new session created for user:`, { userId });
   return sessionToken;
@@ -174,17 +133,9 @@ async function authenticate(identifier: string, password: string): Promise<strin
 
 /**
  * Verifies that a session token is valid and returns the associated user ID.
- * @param sessionToken - The raw session token presented by the caller.
  */
 async function verifySession(sessionToken: string): Promise<string | null> {
-  const session = await cache.get<SessionData>(`session:${hashSessionToken(sessionToken)}`);
-  if (!session) return null;
-
-  if (session.expires < Date.now()) {
-    console.warn(`${colors.yellow}[auth]${colors.reset} Failed session verification: token expired`);
-    return null;
-  }
-  return session.userId;
+  return verifyUserSession(sessionToken);
 }
 
 /**
@@ -225,10 +176,7 @@ export {
   verifySession,
   getVerifiedActor,
   requireRole,
-  hashSessionToken,
   hashPassword,
   verifyPassword,
-  SESSION_TTL_HOURS,
-  type ActorData,
-  type SessionData
+  type ActorData
 };

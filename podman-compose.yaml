@@ -1,4 +1,15 @@
 services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=concord
+      - POSTGRES_PASSWORD=concord_secret_password_change_in_production
+      - POSTGRES_DB=concord
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   redis:
     image: docker.io/library/redis:8.6.1-alpine
     container_name: redis
@@ -15,9 +26,15 @@ services:
       - API_PORT=8080
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=concord
+      - POSTGRES_USER=concord
+      - POSTGRES_PASSWORD=concord_secret_password_change_in_production
     expose:
       - "8080"  # Internal port for Caddy proxy (not exposed to host)
     depends_on:
+      - postgres
       - redis
     volumes:
       # Bind mounts (you edit on host + Zero Install with container install support)
@@ -28,6 +45,7 @@ services:
       - ./yarn.lock:/app/yarn.lock:Z
       - ./data:/app/data:Z
       - ./src:/app/src:Z
+      - ./public:/app/public:Z
       - ./bootstrap.js:/app/bootstrap.js:Z
       - ./nodemon.json:/app/nodemon.json:Z
       - ./package.json:/app/package.json:Z
@@ -50,5 +68,6 @@ services:
       - concord 
     
 volumes:
+  postgres-data: {}
   caddy-data: {}
   caddy-config: {}

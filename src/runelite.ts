@@ -3,10 +3,10 @@ import http from "node:http";
 import WebSocket, { WebSocketServer } from "ws";
 
 import * as auth from "./auth.ts";
-import { Packet, persistPacket, type PacketValue, type SerializedPacket } from "./packet.ts";
-import * as permission from "./permission.ts";
-import * as limits from "./limits.ts";
-import { createGuestSession, getRootCredentials, updateUserOsrsName } from "./user.ts";
+import { Packet, persistPacket, type PacketValue, type SerializedPacket } from "./ephemeral/packets.ts";
+import * as permission from "./persistent/permissions.ts";
+import * as limits from "./persistent/limits.ts";
+import { createGuestSession, getRootCredentials, updateUserOsrsName } from "./persistent/users.ts";
 
 // ANSI color codes for console output
 const colors = {
