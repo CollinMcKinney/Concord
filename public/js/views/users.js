@@ -19,6 +19,11 @@ async function loadUsersView() {
 }
 
 async function renderUsersView() {
+  // Clear search query when loading the view
+  state.usersSearchQuery = '';
+  const searchInput = document.getElementById('users-search-input');
+  if (searchInput) searchInput.value = '';
+
   try {
     const users = await apiCall('listUsers');
     state.users = users || [];
@@ -54,6 +59,7 @@ async function renderUsersView() {
   document.getElementById('users-total-count').textContent = `${state.users.length} total`;
   renderUsersRoleTabs(roleCounts, filteredUsers);
   renderUsersResults(filteredUsers);
+  attachUsersSearchListener();
 }
 
 function renderUsersRoleTabs(roleCounts, filteredUsers) {
@@ -89,6 +95,31 @@ function renderUsersResults(filteredUsers) {
     return;
   }
   container.innerHTML = filteredUsers.map(user => renderUserCard(user)).join('');
+}
+
+function attachUsersSearchListener() {
+  const searchInput = document.getElementById('users-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      state.usersSearchQuery = e.target.value;
+      // Re-filter and render
+      let filteredUsers = state.usersCurrentTab === 'all'
+        ? state.users
+        : state.users.filter(u => (u.role != null ? u.role : 2) === parseInt(state.usersCurrentTab));
+      
+      if (state.usersSearchQuery) {
+        const query = state.usersSearchQuery.toLowerCase();
+        filteredUsers = filteredUsers.filter(u => {
+          const osrs = (u.osrsName || '').toLowerCase();
+          const disc = (u.discName || '').toLowerCase();
+          const forum = (u.forumName || '').toLowerCase();
+          const id = (u.id || '').toLowerCase();
+          return osrs.includes(query) || disc.includes(query) || forum.includes(query) || id.includes(query);
+        });
+      }
+      renderUsersResults(filteredUsers);
+    });
+  }
 }
 
 function handleUsersSearch(inputElement) {

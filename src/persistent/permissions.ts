@@ -51,11 +51,55 @@ const DEFAULT_SUPPRESSED_PREFIXES: string[] = [
 
 /**
  * Default command role requirements.
+ * These are the API functions that can be called from the frontend.
  */
 const DEFAULT_COMMAND_ROLE_REQUIREMENTS: Record<string, RoleType> = {
-  'input': Roles.MEMBER,
-  'setrank': Roles.OWNER,
-  'config': Roles.ADMIN,
+  // Auth
+  'authenticate': Roles.GUEST,
+  'verifySession': Roles.GUEST,
+  
+  // Packets
+  'addPacket': Roles.MEMBER,
+  'getPackets': Roles.MEMBER,
+  'deletePacket': Roles.MODERATOR,
+  'editPacket': Roles.MODERATOR,
+  
+  // Message Suppression
+  'getSuppressedPrefixes': Roles.MEMBER,
+  'setSuppressedPrefixes': Roles.ADMIN,
+  
+  // Permissions
+  'getCommandRoleRequirements': Roles.ROOT,
+  'setCommandRoleRequirement': Roles.ROOT,
+  
+  // Files
+  'listFiles': Roles.MEMBER,
+  'uploadFile': Roles.MEMBER,
+  'deleteFile': Roles.MODERATOR,
+  'getCategories': Roles.MEMBER,
+  'createCategory': Roles.ADMIN,
+  'deleteCategory': Roles.ADMIN,
+  'getAllowedMimeTypes': Roles.MEMBER,
+  'setAllowedMimeTypes': Roles.ROOT,
+  
+  // Users
+  'createUser': Roles.ADMIN,
+  'listUsers': Roles.MODERATOR,
+  'getUser': Roles.MODERATOR,
+  'setRole': Roles.OWNER,
+  'deleteUser': Roles.OWNER,
+  'changePassword': Roles.ADMIN,
+  'resetPassword': Roles.ROOT,
+  
+  // Discord
+  'getDiscordStatus': Roles.MEMBER,
+  'updateDiscordConfig': Roles.ROOT,
+  'startDiscord': Roles.ROOT,
+  'stopDiscord': Roles.ROOT,
+  
+  // Limits
+  'getAllLimits': Roles.MODERATOR,
+  'updateLimits': Roles.ROOT,
 };
 
 /**

@@ -32,6 +32,11 @@ async function loadFilesView() {
 }
 
 async function renderFilesView() {
+  // Clear search query when loading the view
+  state.filesSearchQuery = '';
+  const searchInput = document.getElementById('files-search-input');
+  if (searchInput) searchInput.value = '';
+
   // Build file counts
   const fileCounts = {};
   let totalFiles = 0;
@@ -40,21 +45,47 @@ async function renderFilesView() {
     totalFiles += fileCounts[category];
   }
 
-  const allowedTypes = Array.isArray(state.allowedMimeTypes) ? state.allowedMimeTypes : [];
-  const customTypes = allowedTypes.filter(t => !PREDEFINED_TYPE_LIST.includes(t));
+  // Get allowed MIME types
+  try {
+    const result = await apiCall('getAllowedMimeTypes');
+    state.allowedMimeTypes = Array.isArray(result) && result.length > 0 ? result : PREDEFINED_MIME_TYPES.map(t => t.type);
+  } catch (e) {
+    state.allowedMimeTypes = PREDEFINED_MIME_TYPES.map(t => t.type);
+  }
+
+  // Get custom MIME types (stored separately)
+  try {
+    const customResult = await apiCall('getCustomMimeTypes');
+    state.customMimeTypes = Array.isArray(customResult) ? customResult : [];
+    console.log('[Files] Custom MIME types loaded:', state.customMimeTypes);
+  } catch (e) {
+    console.error('[Files] Failed to load custom MIME types:', e);
+    state.customMimeTypes = [];
+  }
+
+  const sortedCategories = ['branding', ...state.filesCategories.filter(c => c !== 'branding').sort()];
+  state.filesCategories = sortedCategories;
+
+  // Build list: predefined types (toggle only) + custom types (toggle + delete)
   const allMimeTypes = [
-    ...PREDEFINED_MIME_TYPES.map(item => ({ ...item, isPredefined: true })),
-    ...customTypes.map(type => ({ type, emoji: '📄', isPredefined: false }))
+    ...PREDEFINED_MIME_TYPES.map(item => ({ ...item, isPredefined: true, isCustom: false })),
+    ...state.customMimeTypes.map(type => ({
+      type,
+      emoji: '📄',
+      isPredefined: false,
+      isCustom: true
+    }))
   ];
 
   // Update UI
   document.getElementById('files-total-count').textContent = `${totalFiles} total`;
-  renderFilesMimeTypes(allowedTypes, allMimeTypes);
+  renderFilesMimeTypes(allMimeTypes);
   renderFilesCategoryTabs(fileCounts);
   renderFilesResults();
+  attachFilesSearchListener();
 }
 
-function renderFilesMimeTypes(allowedTypes, allMimeTypes) {
+function renderFilesMimeTypes(allMimeTypes) {
   const section = document.getElementById('files-mime-types-section');
   const grid = document.getElementById('files-mime-types-grid');
   
@@ -66,24 +97,26 @@ function renderFilesMimeTypes(allowedTypes, allMimeTypes) {
   section.style.display = 'block';
   grid.innerHTML = `
     ${allMimeTypes.map(item => {
-      const isEnabled = allowedTypes.includes(item.type);
+      const isCustom = item.isCustom;
+      const isEnabled = state.allowedMimeTypes.includes(item.type);
       const dotColor = isEnabled ? 'var(--accent)' : '#ff8585';
       const dotShadow = isEnabled ? '0 0 12px rgba(141, 240, 181, 0.8)' : '0 0 12px rgba(255, 133, 133, 0.8)';
-      const isCustom = !item.isPredefined;
+      
+      // Custom types have delete button, all types are toggleable by clicking anywhere
       return `
-        <button type="button" data-action="toggle-mime-type" data-type="${item.type}" data-enabled="${!isEnabled}"
-          style="display: flex; align-items: center; justify-content: space-between; gap: 6px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: var(--text); font-size: 0.8rem;">
-          <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); color: var(--text); font-size: 0.8rem; cursor: pointer;" 
+          data-action="toggle-mime-type" data-type="${item.type}" data-enabled="${isEnabled}">
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
             <span style="width: 8px; height: 8px; border-radius: 50%; background: ${dotColor}; box-shadow: ${dotShadow};"></span>
             <span>${item.emoji || '📄'} ${item.type}</span>
           </div>
-          ${isCustom ? `<span data-action="remove-mime-type" data-type="${item.type}" style="background: none; border: none; color: #ff8585; cursor: pointer; padding: 2px 6px; font-size: 1.1rem;">🗑️</span>` : ''}
-        </button>
+          ${isCustom ? `<button type="button" class="danger-button" data-action="remove-mime-type" data-type="${item.type}" title="Delete">🗑️</button>` : ''}
+        </div>
       `;
     }).join('')}
     <button type="button" data-action="open-add-mime-type"
       style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: rgba(141, 240, 181, 0.1); border: 1px dashed var(--accent); color: var(--accent); font-size: 1.2rem;">
-      <span>➕</span><span style="font-size: 0.75rem;">Add Type</span>
+      <span style="pointer-events: none;">➕</span><span style="font-size: 0.75rem; pointer-events: none;">Add Type</span>
     </button>
   `;
 }
@@ -106,18 +139,43 @@ function renderFilesCategoryTabs(fileCounts) {
 
 function renderFilesResults() {
   const container = document.getElementById('files-results');
+  if (!container) return;
+
   const currentFiles = (state.files[state.filesCurrentTab] || []).filter(f => {
     if (!state.filesSearchQuery) return true;
     const query = state.filesSearchQuery.toLowerCase();
     return f.name.toLowerCase().includes(query) || f.category.toLowerCase().includes(query);
   });
 
-  if (currentFiles.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No Files</div><div class="empty-state-description">No files found in this category.</div></div>`;
-    return;
+  if (state.filesCurrentTab === 'all') {
+    // Show all files grouped by category
+    const entries = Object.entries(state.files).filter(([_, files]) => files.length > 0);
+    if (entries.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No Files</div><div class="empty-state-description">No files found. Click "Upload File" to add one.</div></div>`;
+      return;
+    }
+    container.innerHTML = entries.map(([cat, files]) => `
+      <h3 style="margin: 16px 0 8px; color: var(--accent);">${getCategoryIcon(cat)} ${formatCategoryName(cat)} (${files.length})</h3>
+      ${files.filter(f => !state.filesSearchQuery || f.name.toLowerCase().includes(state.filesSearchQuery.toLowerCase())).map(file => renderFileCard(file)).join('')}
+    `).join('');
+  } else {
+    // Show files for specific category
+    if (currentFiles.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📁</div><div class="empty-state-title">No Files</div><div class="empty-state-description">No files found in this category.</div></div>`;
+      return;
+    }
+    container.innerHTML = currentFiles.map(file => renderFileCard(file)).join('');
   }
+}
 
-  container.innerHTML = currentFiles.map(file => renderFileCard(file)).join('');
+function attachFilesSearchListener() {
+  const searchInput = document.getElementById('files-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      state.filesSearchQuery = e.target.value;
+      renderFilesResults();
+    });
+  }
 }
 
 function handleFilesSearch(inputElement) {
@@ -335,10 +393,10 @@ function closeUploadFileModal() {
 
 function setAsFavicon(category, fileName) {
   const sessionToken = sessionStorage.getItem('sessionToken');
-  
-  fetch('/files/favicon', {
+
+  fetch('/dashboard/files/favicon', {
     method: 'POST',
-    headers: { 
+    headers: {
       'Content-Type': 'application/json',
       'X-Session-Token': sessionToken || ''
     },
@@ -423,15 +481,15 @@ async function saveAddMimeType() {
   }
 
   try {
+    // Add to custom types (persists even when toggled off)
+    await apiCall('addCustomMimeType', [mimeType]);
+
+    // Get current allowed types (server includes predefined + custom)
     const currentTypes = await apiCall('getAllowedMimeTypes') || [];
-    const safeTypes = Array.isArray(currentTypes) ? currentTypes : [];
 
-    if (safeTypes.includes(mimeType)) {
-      showToast('MIME type already allowed');
-      return;
-    }
+    // Add the new MIME type if not already present
+    const newTypes = currentTypes.includes(mimeType) ? currentTypes : [...currentTypes, mimeType];
 
-    const newTypes = [...safeTypes, mimeType];
     await apiCall('setAllowedMimeTypes', newTypes);
 
     closeAddMimeTypeModal();
@@ -445,17 +503,14 @@ async function saveAddMimeType() {
 async function toggleMimeType(mimeType, enable) {
   try {
     const currentTypes = await apiCall('getAllowedMimeTypes') || [];
-    const safeTypes = Array.isArray(currentTypes) ? currentTypes : [];
-    const actualTypes = safeTypes.length === 0 ? PREDEFINED_TYPE_LIST : safeTypes;
-
+    
     let newTypes;
-
     if (enable) {
       // Add type if not already present
-      newTypes = [...actualTypes.filter((v, i, a) => a.indexOf(v) === i), mimeType];
+      newTypes = currentTypes.includes(mimeType) ? currentTypes : [...currentTypes, mimeType];
     } else {
-      // Remove type (allow disabling all to block uploads)
-      newTypes = actualTypes.filter(t => t !== mimeType);
+      // Remove type from allowed list
+      newTypes = currentTypes.filter(t => t !== mimeType);
     }
 
     await apiCall('setAllowedMimeTypes', newTypes);
@@ -475,21 +530,24 @@ async function removeMimeType(mimeType) {
     showToast('Cannot delete predefined MIME types - use toggle to disable');
     return;
   }
-  
+
   if (!confirm(`Delete '${mimeType}' from allowed types?`)) {
     return;
   }
-  
+
   try {
+    // Remove from custom types
+    await apiCall('removeCustomMimeType', [mimeType]);
+
+    // Also remove from allowed types
     const currentTypes = await apiCall('getAllowedMimeTypes') || [];
-    const safeTypes = Array.isArray(currentTypes) ? currentTypes : [];
-    const newTypes = safeTypes.filter(t => t !== mimeType);
-    
+    const newTypes = currentTypes.filter(t => t !== mimeType);
+
     if (newTypes.length === 0) {
       showToast('Cannot remove all MIME types');
       return;
     }
-    
+
     await apiCall('setAllowedMimeTypes', newTypes);
     await loadFilesView();
     showToast('MIME type removed');

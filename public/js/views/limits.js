@@ -58,19 +58,19 @@ function attachLimitsEventListeners() {
 }
 
 function openEditLimitVarModal(key, value, label) {
-  document.getElementById('editLimitVarKey').value = key;
-  document.getElementById('editLimitVarLabel').textContent = label;
-  document.getElementById('editLimitVarValue').value = value;
-  document.getElementById('editLimitVarModal').classList.add('active');
+  document.getElementById('editLimitKey').value = key;
+  document.getElementById('editLimitLabel').textContent = label;
+  document.getElementById('editLimitValue').value = value;
+  document.getElementById('editLimitModal').classList.add('active');
 }
 
 function closeEditLimitVarModal() {
-  document.getElementById('editLimitVarModal').classList.remove('active');
+  document.getElementById('editLimitModal').classList.remove('active');
 }
 
 async function saveLimitVarChange() {
-  const key = document.getElementById('editLimitVarKey').value;
-  const value = document.getElementById('editLimitVarValue').value.trim();
+  const key = document.getElementById('editLimitKey').value;
+  const value = document.getElementById('editLimitValue').value.trim();
 
   if (!value) {
     showToast('Value cannot be empty');

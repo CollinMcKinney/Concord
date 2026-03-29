@@ -15,6 +15,11 @@ async function loadPacketsView() {
 }
 
 async function renderPacketsView() {
+  // Clear search query when loading the view
+  state.packetsSearchQuery = '';
+  const searchInput = document.getElementById('packets-search-input');
+  if (searchInput) searchInput.value = '';
+
   const packets = await apiCall('getPackets', [50]);
   state.packets = packets || [];
   state.packetsCurrentCategory = state.packetsCurrentCategory || 'all';
@@ -66,6 +71,7 @@ async function renderPacketsView() {
   renderPacketsCategoryTabs(categoryCounts);
   renderPacketsSubcategoryTabs(categoryCounts, subcategoryCounts);
   renderPacketsResults(filteredPackets, categoryCounts, subcategoryCounts);
+  attachPacketsSearchListener();
 }
 
 function renderPacketsCategoryTabs(categoryCounts) {
@@ -142,6 +148,34 @@ function renderPacketsResults(filteredPackets, categoryCounts, subcategoryCounts
   container.innerHTML = `
     ${filteredPackets.slice(0, 20).map(packet => renderPacketCard(packet)).join('')}
   `;
+}
+
+function attachPacketsSearchListener() {
+  const searchInput = document.getElementById('packets-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      state.packetsSearchQuery = e.target.value;
+      // Re-render results with new search query
+      let filteredPackets = state.packets;
+      if (state.packetsCurrentCategory !== 'all') {
+        filteredPackets = filteredPackets.filter(p => {
+          const type = p.type || 'unknown';
+          return type.startsWith(state.packetsCurrentCategory + '.') || type === state.packetsCurrentCategory;
+        });
+      }
+      if (state.packetsSearchQuery) {
+        const query = state.packetsSearchQuery.toLowerCase();
+        filteredPackets = filteredPackets.filter(p => {
+          const body = (p.data?.body || '').toLowerCase();
+          const actor = (p.actor?.name || '').toLowerCase();
+          const origin = (p.origin || '').toLowerCase();
+          const type = (p.type || '').toLowerCase();
+          return body.includes(query) || actor.includes(query) || origin.includes(query) || type.includes(query);
+        });
+      }
+      renderPacketsResults(filteredPackets, {}, {});
+    });
+  }
 }
 
 function handlePacketsSearch(inputElement) {
@@ -246,6 +280,7 @@ function renderPacketCard(packet) {
       </div>
       <div class="compact-card-actions">
         <button type="button" class="secondary-button" data-action="view-packet" title="View details">👁️</button>
+        <button type="button" class="secondary-button" data-action="view-json-packet" title="View raw JSON">📄</button>
         <button type="button" class="secondary-button" data-action="edit-packet" title="Edit">✏️</button>
         <button type="button" class="danger-button" data-action="delete-packet" title="Delete">🗑️</button>
       </div>

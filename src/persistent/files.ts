@@ -149,22 +149,55 @@ function getFileSetKey(category: FileCategory): string {
 }
 
 /**
- * Gets the list of allowed MIME types from cache or defaults.
+ * Gets the list of allowed MIME types.
  */
 export async function getAllowedMimeTypes(): Promise<string[]> {
-  const allowed = await get<string[]>('config:allowedMimeTypes');
-  // Ensure we always return an array
-  if (Array.isArray(allowed) && allowed.length > 0) {
-    return allowed;
+  const stored = await get<string[]>('config:allowedMimeTypes');
+  
+  if (Array.isArray(stored) && stored.length > 0) {
+    return stored;
   }
+  
+  // Default to all predefined types if nothing configured
   return DEFAULT_ALLOWED_MIME_TYPES;
 }
 
 /**
- * Sets the list of allowed MIME types (ROOT only).
+ * Sets the list of allowed MIME types.
+ * Stores the complete list (predefined + custom).
  */
 export async function setAllowedMimeTypes(mimeTypes: string[]): Promise<void> {
   await set('config:allowedMimeTypes', mimeTypes);
+}
+
+/**
+ * Gets custom MIME types (user-added types).
+ */
+export async function getCustomMimeTypes(): Promise<string[]> {
+  const custom = await get<string[]>('config:customMimeTypes');
+  // Ensure we always return a proper array
+  if (Array.isArray(custom)) {
+    return custom.filter(t => typeof t === 'string' && t.length > 0);
+  }
+  return [];
+}
+
+/**
+ * Adds a custom MIME type.
+ */
+export async function addCustomMimeType(mimeType: string): Promise<void> {
+  const current = await getCustomMimeTypes();
+  if (!current.includes(mimeType)) {
+    await set('config:customMimeTypes', [...current, mimeType]);
+  }
+}
+
+/**
+ * Removes a custom MIME type.
+ */
+export async function removeCustomMimeType(mimeType: string): Promise<void> {
+  const current = await getCustomMimeTypes();
+  await set('config:customMimeTypes', current.filter(t => t !== mimeType));
 }
 
 /**

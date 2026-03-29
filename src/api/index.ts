@@ -256,6 +256,18 @@ export const setAllowedMimeTypes = apiCommand("setAllowedMimeTypes", async (_ses
   return files.setAllowedMimeTypes(mimeTypes);
 });
 
+export const getCustomMimeTypes = apiCommand("getCustomMimeTypes", async (_sessionToken: string): Promise<string[]> => {
+  return files.getCustomMimeTypes();
+});
+
+export const addCustomMimeType = apiCommand("addCustomMimeType", async (_sessionToken: string, mimeType: string): Promise<void> => {
+  return files.addCustomMimeType(mimeType);
+});
+
+export const removeCustomMimeType = apiCommand("removeCustomMimeType", async (_sessionToken: string, mimeType: string): Promise<void> => {
+  return files.removeCustomMimeType(mimeType);
+});
+
 // ============================================================================
 // User Management Exports
 // ============================================================================
@@ -351,6 +363,9 @@ const apiModule = {
   deleteCategory,
   getAllowedMimeTypes,
   setAllowedMimeTypes,
+  getCustomMimeTypes,
+  addCustomMimeType,
+  removeCustomMimeType,
   // Discord
   getDiscordStatus,
   updateDiscordConfig,

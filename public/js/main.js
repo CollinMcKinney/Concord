@@ -95,25 +95,30 @@ document.addEventListener('DOMContentLoaded', async () => {
  */
 async function handleGlobalClick(e) {
   const target = e.target;
-  
+
+  // MIME type remove - MUST be checked before toggle (parent container)
+  if (target.matches('[data-action="remove-mime-type"]')) {
+    e.preventDefault();
+    e.stopPropagation();
+    const type = target.dataset.type;
+    removeMimeType(type);
+    return;
+  }
+
   // MIME type toggle
   const toggleButton = target.closest('[data-action="toggle-mime-type"]');
   if (toggleButton) {
     // Prevent double-clicking while request is in progress
     if (toggleButton.dataset.loading === 'true') return;
-    
+
     const type = toggleButton.dataset.type;
-    console.log('[MIME Toggle] Clicked:', type);
-    
-    // Read current state from the style attribute (green/accent = enabled, red = disabled)
-    const buttonHtml = toggleButton.outerHTML;
-    const isEnabled = buttonHtml.includes('var(--accent)');
-    console.log('[MIME Toggle] Current state:', isEnabled ? 'ENABLED' : 'DISABLED');
-    
+    const isEnabled = toggleButton.dataset.enabled === 'true';
+    console.log('[MIME Toggle] Clicked:', type, 'Current state:', isEnabled ? 'ENABLED' : 'DISABLED');
+
     // Set loading state
     toggleButton.dataset.loading = 'true';
     toggleButton.style.opacity = '0.6';
-    
+
     try {
       await toggleMimeType(type, !isEnabled);
       console.log('[MIME Toggle] Success');
@@ -124,14 +129,6 @@ async function handleGlobalClick(e) {
       toggleButton.dataset.loading = 'false';
       toggleButton.style.opacity = '';
     }
-    return;
-  }
-  
-  // MIME type remove
-  if (target.matches('[data-action="remove-mime-type"]')) {
-    e.stopPropagation();
-    const type = target.dataset.type;
-    removeMimeType(type);
     return;
   }
   
@@ -307,6 +304,14 @@ function handleContentPanelClick(e) {
         modal.classList.add('active');
       }
       break;
+    case 'view-json-packet':
+      const packetJson = state.packets.find(p => p.id === packetId);
+      if (packetJson) {
+        const modal = document.getElementById('viewJsonModal');
+        document.getElementById('viewJsonContent').textContent = JSON.stringify(packetJson, null, 2);
+        modal.classList.add('active');
+      }
+      break;
     case 'preview-file':
       const file = (state.files[fileCategory] || []).find(f => f.name === fileName);
       if (file) {
@@ -393,7 +398,8 @@ async function loadFavicon() {
       const data = await response.json();
       const faviconLink = document.querySelector('link[rel="icon"]');
       if (faviconLink && data.category && data.name) {
-        faviconLink.href = `/files/${data.category}/${encodeURIComponent(data.name)}`;
+        // Add cache-busting timestamp to force browser to reload
+        faviconLink.href = `/files/${data.category}/${encodeURIComponent(data.name)}?t=${Date.now()}`;
       }
     }
   } catch (err) {

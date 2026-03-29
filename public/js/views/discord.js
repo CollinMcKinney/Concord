@@ -55,6 +55,37 @@ async function renderDiscordView() {
   renderDiscordSettings('discord-guild-settings', [
     { label: 'Discord Invite URL', value: status.discordInviteUrl, action: 'edit-discord-invite-url', icon: '🏰', help: 'Discord Server → Invite Settings' }
   ]);
+
+  // Attach event listeners to Discord edit buttons
+  attachDiscordEditListeners();
+}
+
+function attachDiscordEditListeners() {
+  const discordActions = {
+    'edit-bot-token': { key: 'botToken', label: 'Bot Token', help: 'Developer Portal → Bot → Reset Token' },
+    'edit-client-id': { key: 'clientId', label: 'Client ID', help: 'Developer Portal → OAuth2' },
+    'edit-client-secret': { key: 'clientSecret', label: 'Client Secret', help: 'Developer Portal → OAuth2 → Reset Secret' },
+    'edit-redirect-uri': { key: 'redirectUri', label: 'Redirect URI', help: 'Developer Portal → OAuth2 → Add Redirect' },
+    'edit-permissions': { key: 'permissionsInteger', label: 'Permissions', help: 'Developer Portal → Bot → Permissions' },
+    'edit-channel-id': { key: 'channelId', label: 'Channel ID', help: 'Discord → Right-click channel → Copy ID' },
+    'edit-webhook-url': { key: 'webhookUrl', label: 'Webhook URL', help: 'Discord → Channel → Integrations → Webhooks' },
+    'edit-discord-invite-url': { key: 'discordInviteUrl', label: 'Discord Invite URL', help: 'Discord Server → Invite Settings' }
+  };
+
+  Object.entries(discordActions).forEach(([action, config]) => {
+    document.querySelectorAll(`[data-action="${action}"]`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        openEditDiscordSettingModal(config.key, state.discordStatus[config.key], config.label, config.help);
+      });
+    });
+  });
+
+  // Open Discord Developer Portal button
+  document.querySelectorAll('[data-action="open-developer-portal"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.open('https://discord.com/developers/applications', '_blank');
+    });
+  });
 }
 
 function renderDiscordSettings(containerId, settings) {
@@ -74,6 +105,38 @@ function renderDiscordSettings(containerId, settings) {
   `).join('');
 }
 
+function openEditDiscordSettingModal(key, value, label, help) {
+  document.getElementById('editDiscordSettingKey').value = key;
+  document.getElementById('editDiscordSettingLabel').textContent = label;
+  document.getElementById('editDiscordSettingValue').value = value || '';
+  document.getElementById('editDiscordSettingHelp').textContent = help;
+  document.getElementById('editDiscordSettingModal').classList.add('active');
+}
+
+function closeEditDiscordSettingModal() {
+  document.getElementById('editDiscordSettingModal').classList.remove('active');
+}
+
+async function saveEditDiscordSetting() {
+  const key = document.getElementById('editDiscordSettingKey').value;
+  const value = document.getElementById('editDiscordSettingValue').value.trim();
+
+  if (!value) {
+    showToast('Value cannot be empty');
+    return;
+  }
+
+  try {
+    const config = { [key]: value };
+    await apiCall('updateDiscordConfig', [config]);
+    showToast('Discord setting updated successfully');
+    closeEditDiscordSettingModal();
+    await loadDiscordView();
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
+
 async function handleDiscordToggle() {
   const status = state.discordStatus;
   try {
@@ -90,3 +153,9 @@ async function handleDiscordToggle() {
     showToast(`Error: ${error.message}`);
   }
 }
+
+// Export functions
+window.openEditDiscordSettingModal = openEditDiscordSettingModal;
+window.closeEditDiscordSettingModal = closeEditDiscordSettingModal;
+window.saveEditDiscordSetting = saveEditDiscordSetting;
+window.handleDiscordToggle = handleDiscordToggle;

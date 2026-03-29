@@ -8,7 +8,7 @@ import helmet from "helmet";
 
 import { initDiscord } from "./discord.ts";
 import { initStorage, client } from "./ephemeral/cache.ts";
-import { initFiles, updateUploadSizeLimit } from "./persistent/files.ts";
+import { initFiles, updateUploadSizeLimit, getFile, getFileMeta } from "./persistent/files.ts";
 import { Packet, type SerializedPacket } from "./ephemeral/packets.ts";
 import { attachToServer, broadcast, closeWebSocketServer } from "./runelite.ts";
 import { initializeRoot } from "./persistent/users.ts";
@@ -65,6 +65,36 @@ app.use(express.static(publicDir, { index: false }));
 // Dashboard router - UI for all authenticated users (not just admins)
 app.use("/dashboard", apiRouter);
 app.use("/modals", express.static(path.join(publicDir, "modals")));
+
+// File serving route (separate from dashboard API)
+app.get("/files/:category/:name", async (req, res) => {
+  try {
+    const { category, name } = req.params;
+    const fileBuffer = await getFile(category, name);
+    if (!fileBuffer) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    const meta = await getFileMeta(category, name);
+    const mimeType = meta?.mimeType || "application/octet-stream";
+    res.set("Content-Type", mimeType);
+    res.set("Cache-Control", "public, max-age=31536000");
+    res.send(fileBuffer);
+  } catch (err) {
+    console.error("[files] Error serving file:", err);
+    res.status(500).json({ error: "Failed to serve file" });
+  }
+});
+
+// Favicon config endpoint
+app.get("/files/favicon", async (req, res) => {
+  try {
+    const { getFavicon } = await import("./persistent/files.ts");
+    const favicon = await getFavicon();
+    res.json(favicon || { category: "branding", name: "favicon.png" });
+  } catch {
+    res.json({ category: "branding", name: "favicon.png" });
+  }
+});
 
 // Optional: simple broadcast endpoint for testing
 app.post("/broadcast", (req, res) => {

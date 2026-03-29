@@ -171,6 +171,51 @@ function getRoleColor(role) {
   return colors[role] || '#8df0b5';
 }
 
+function openChangePasswordModal() {
+  document.getElementById('changePasswordUsername').value = '';
+  document.getElementById('changePasswordCurrent').value = '';
+  document.getElementById('changePasswordNew').value = '';
+  document.getElementById('changePasswordConfirm').value = '';
+  document.getElementById('changePasswordModal').classList.add('active');
+}
+
+function closeChangePasswordModal() {
+  document.getElementById('changePasswordModal').classList.remove('active');
+}
+
+async function savePasswordChange() {
+  const username = document.getElementById('changePasswordUsername').value.trim();
+  const currentPassword = document.getElementById('changePasswordCurrent').value;
+  const newPassword = document.getElementById('changePasswordNew').value;
+  const confirmPassword = document.getElementById('changePasswordConfirm').value;
+
+  if (!username || !currentPassword || !newPassword || !confirmPassword) {
+    showToast('Please fill in all fields');
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    showToast('New passwords do not match');
+    return;
+  }
+
+  try {
+    // First verify current password
+    const authResult = await apiCall('authenticate', [username, currentPassword]);
+    if (!authResult) {
+      showToast('Current password is incorrect');
+      return;
+    }
+
+    // Change the password
+    await apiCall('changePassword', [username, newPassword]);
+    showToast('Password changed successfully');
+    closeChangePasswordModal();
+  } catch (error) {
+    showToast(`Error: ${error.message}`);
+  }
+}
+
 // Export functions
 window.openAddPrefixModal = openAddPrefixModal;
 window.closeAddPrefixModal = closeAddPrefixModal;
@@ -179,3 +224,6 @@ window.deletePrefix = deletePrefix;
 window.openEditCommandRoleModal = openEditCommandRoleModal;
 window.closeEditCommandRoleModal = closeEditCommandRoleModal;
 window.saveCommandRoleChange = saveCommandRoleChange;
+window.openChangePasswordModal = openChangePasswordModal;
+window.closeChangePasswordModal = closeChangePasswordModal;
+window.savePasswordChange = savePasswordChange;

@@ -4,6 +4,8 @@
  */
 
 function attachModalEventListeners() {
+  console.log('[Modal Event Listeners] Attaching listeners...');
+  
   // ===== View JSON Modal =====
   document.getElementById('viewJsonCloseBtn1')?.addEventListener('click', closeViewJsonModal);
   document.getElementById('viewJsonCloseBtn2')?.addEventListener('click', closeViewJsonModal);
@@ -64,7 +66,20 @@ function attachModalEventListeners() {
   document.getElementById('addMimeTypeCloseBtn')?.addEventListener('click', closeAddMimeTypeModal);
   document.getElementById('addMimeTypeCancelBtn')?.addEventListener('click', closeAddMimeTypeModal);
   document.getElementById('addMimeTypeSaveBtn')?.addEventListener('click', saveAddMimeType);
+
+  // ===== Edit Env Var Modal =====
+  document.getElementById('editLimitCloseBtn')?.addEventListener('click', closeEditLimitVarModal);
+  document.getElementById('editLimitCancelBtn')?.addEventListener('click', closeEditLimitVarModal);
+  document.getElementById('editLimitSaveBtn')?.addEventListener('click', saveLimitVarChange);
+
+  // ===== Edit Discord Setting Modal =====
+  document.getElementById('editDiscordSettingCloseBtn')?.addEventListener('click', closeEditDiscordSettingModal);
+  document.getElementById('editDiscordSettingCancelBtn')?.addEventListener('click', closeEditDiscordSettingModal);
+  document.getElementById('editDiscordSettingSaveBtn')?.addEventListener('click', saveEditDiscordSetting);
 }
 
 // Export for use in modals.js
 window.attachModalEventListeners = attachModalEventListeners;
+
+// Log when listeners are attached
+console.log('[Modal Event Listeners] Module loaded');
