@@ -1,0 +1,25 @@
+<!-- Edit Limit Modal -->
+<div class="modal-overlay" id="editLimitModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">⚙️ Edit Limit</h3>
+      <button class="modal-close" id="editLimitCloseBtn" title="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editLimitKey">
+      <div class="field">
+        <label for="editLimitLabel">Setting</label>
+        <div id="editLimitLabel" style="color: var(--text); font-size: 0.95rem; margin-bottom: 12px;"></div>
+      </div>
+      <div class="field">
+        <label for="editLimitValue">Value</label>
+        <input type="text" id="editLimitValue" placeholder="Enter value" spellcheck="false" autocomplete="off">
+        <div class="field-help" id="editLimitHelp"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="secondary-button" id="editLimitCancelBtn">Cancel</button>
+      <button type="button" class="primary-button" id="editLimitSaveBtn">Save Changes</button>
+    </div>
+  </div>
+</div>

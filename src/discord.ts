@@ -1,8 +1,8 @@
 import { Client, GatewayIntentBits, Message, WebhookClient } from "discord.js";
 
-import { Packet, packetEvents, addPacket, type PacketObject, type SerializedPacket } from "./packet.ts";
+import { Packet, packetEvents, addPacket, type PacketObject, type SerializedPacket } from "./ephemeral/packets.ts";
 import { broadcast } from "./runelite.ts";
-import * as cache from "./cache.ts";
+import * as cache from "./ephemeral/cache.ts";
 
 // ANSI color codes for console output
 const colors = {

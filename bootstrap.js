@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Concord Bootstrap & Runtime Script
@@ -90,8 +90,62 @@ function runInContainer() {
 // Host Mode (Development Workflow)
 // ============================================================================
 
+function getPublicIp() {
+  try {
+    const ip = execSync('curl -s https://api.ipify.org', { encoding: 'utf8' }).trim();
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return ip;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function updateEnvPublicIp(publicIp) {
+  if (!publicIp) return { changed: false };
+  const envPath = path.resolve(process.cwd(), '.env');
+  const content = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+  const lines = content.split(/\r?\n/);
+  let found = false;
+  let changed = false;
+
+  const next = lines.map(line => {
+    if (line.startsWith('PUBLIC_IP=')) {
+      found = true;
+      if (line !== `PUBLIC_IP=${publicIp}`) {
+        changed = true;
+        return `PUBLIC_IP=${publicIp}`;
+      }
+    }
+    return line;
+  });
+
+  if (!found) {
+    next.push(`PUBLIC_IP=${publicIp}`);
+    changed = true;
+  }
+
+  while (next.length > 0 && next[next.length - 1] === '') {
+    next.pop();
+  }
+
+  fs.writeFileSync(envPath, `${next.join('\n')}\n`, 'utf8');
+  return { changed };
+}
+
 function runOnHost() {
   try {
+    const publicIp = getPublicIp();
+    if (publicIp) {
+      const { changed } = updateEnvPublicIp(publicIp);
+      if (changed) {
+        console.log(`[bootstrap] Updated .env with PUBLIC_IP=${publicIp}`);
+      } else {
+        console.log(`[bootstrap] PUBLIC_IP already up to date: ${publicIp}`);
+      }
+    } else {
+      console.log('[bootstrap] Unable to detect public IP; skipping .env update.');
+    }
+
     // Clean everything
     execSync('podman compose --file podman-compose.yaml down -v', { stdio: 'inherit' });
     console.log('[bootstrap] Prior services terminated...');
