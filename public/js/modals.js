@@ -18,9 +18,7 @@ function copyViewJson() {
   });
 }
 
-function closeCredentialsModal() {
-  document.getElementById('credentialsModal').classList.remove('active');
-}
+// closeCredentialsModal is defined in credentials.js with authentication logic
 
 function closePacketModal() {
   console.log('[Modals] Closing packet modal');
@@ -75,7 +73,7 @@ function closeEditDiscordSettingModal() {
 
 window.closeViewJsonModal = closeViewJsonModal;
 window.copyViewJson = copyViewJson;
-window.closeCredentialsModal = closeCredentialsModal;
+// closeCredentialsModal is exported by credentials.js
 window.closePacketModal = closePacketModal;
 window.closeSetRoleModal = closeSetRoleModal;
 window.closeAddPrefixModal = closeAddPrefixModal;

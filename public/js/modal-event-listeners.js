@@ -5,18 +5,26 @@
 
 function attachModalEventListeners() {
   console.log('[Modal Event Listeners] Attaching listeners...');
-  
+  console.log('[Modal Event Listeners] closeCredentialsModal:', typeof closeCredentialsModal);
+  console.log('[Modal Event Listeners] window.closeCredentialsModal:', typeof window.closeCredentialsModal);
+
   // ===== View JSON Modal =====
   document.getElementById('viewJsonCloseBtn1')?.addEventListener('click', closeViewJsonModal);
   document.getElementById('viewJsonCloseBtn2')?.addEventListener('click', closeViewJsonModal);
   document.getElementById('viewJsonCopyBtn')?.addEventListener('click', copyViewJson);
 
   // ===== Credentials Modal =====
+  const loginBtn = document.getElementById('credentialsLoginBtn');
+  console.log('[Modal Event Listeners] credentialsLoginBtn found:', !!loginBtn);
+  if (loginBtn) {
+    loginBtn.addEventListener('click', closeCredentialsModal);
+    console.log('[Modal Event Listeners] Login button listener attached');
+  }
+  
   document.getElementById('credentialsCloseBtn')?.addEventListener('click', closeCredentialsModal);
   document.getElementById('credentialsLogoutBtn')?.addEventListener('click', logout);
   document.getElementById('credentialsChangePasswordBtn')?.addEventListener('click', openChangePasswordModal);
   document.getElementById('credentialsClearBtn')?.addEventListener('click', clearCredentials);
-  document.getElementById('credentialsLoginBtn')?.addEventListener('click', closeCredentialsModal);
 
   // ===== Packet Modal =====
   document.getElementById('packetCloseBtn1')?.addEventListener('click', closePacketModal);

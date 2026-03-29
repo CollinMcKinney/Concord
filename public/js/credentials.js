@@ -65,11 +65,15 @@ function openCredentialsModal() {
 }
 
 async function closeCredentialsModal() {
+  console.log('[closeCredentialsModal] Called - starting authentication flow');
+  
   document.getElementById('credentialsModal').classList.remove('active');
 
   // Get entered credentials - both username AND password required
   const identifier = document.getElementById('rootCredentials')?.value.trim();
   const credential = document.getElementById('rootPassword')?.value.trim();
+
+  console.log('[closeCredentialsModal] Credentials:', { hasIdentifier: !!identifier, hasCredential: !!credential });
 
   if (!identifier || !credential) {
     // Don't attempt login without both fields
@@ -77,7 +81,7 @@ async function closeCredentialsModal() {
     return;
   }
 
-  console.log('[closeCredentialsModal] Authenticating...', { identifier: !!identifier, credential: !!credential });
+  console.log('[closeCredentialsModal] Authenticating...', { identifier });
 
   try {
     const result = await apiCall('authenticate', [identifier, credential]);
@@ -132,3 +136,4 @@ async function logout() {
 
 // Make logout available globally
 window.logout = logout;
+window.closeCredentialsModal = closeCredentialsModal;

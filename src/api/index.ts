@@ -72,6 +72,12 @@ async function checkCommandAccess(commandName: string, actorSessionToken: string
     return null;
   }
 
+  // Special case: authenticate command doesn't require a session token
+  // (user is trying to GET a session token)
+  if (commandName === "authenticate") {
+    return null;
+  }
+
   // If session token is empty/null, user can't meet role requirement
   if (!actorSessionToken) {
     throw new Error("Authentication required");
