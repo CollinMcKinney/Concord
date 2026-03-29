@@ -40,6 +40,9 @@ const app: Express = express();
 // Security headers (works with or without TLS)
 app.use(helmet({
   contentSecurityPolicy: {
+    // Avoid forcing HTTPS upgrades when serving over plain HTTP (e.g., IP access)
+    // Helmet may add upgrade-insecure-requests by default in some versions.
+    useDefaults: true,
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"], // External scripts only
@@ -49,6 +52,8 @@ app.use(helmet({
       imgSrc: ["'self'", 'data:', 'https:'],
       connectSrc: ["'self'"],
       frameSrc: ["'none'"], // Prevent embedding in iframes
+      upgradeInsecureRequests: null,
+      blockAllMixedContent: null,
     }
   },
   frameguard: { action: 'deny' }, // Additional clickjacking protection
@@ -131,7 +136,7 @@ async function start(): Promise<void> {
 
   const port = process.env.API_PORT || '8080';
   server.listen(port, () => {
-    console.log(`${colors.green}[server]${colors.reset} Concord is running on port ${port}`);
+    console.log(`${colors.green}[server]${colors.reset} Concord is running!`);
   });
 }
 
